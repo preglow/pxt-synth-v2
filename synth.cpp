@@ -32,7 +32,8 @@ enum class SynthParameter {
     //% osc2transpose
     Osc2Transpose,
     //% oscbalance
-    OscBalance,
+    Osc1Gain,
+    Osc2Gain,
     //% cutoff
     Cutoff,
     //% resonance
@@ -45,7 +46,8 @@ enum class SynthParameter {
     EnvDecayTime,
     //% envelope sustain
     EnvSustainLevel,
-    EnvRelease
+    EnvRelease,
+    Gain
 };
 
 enum class Sample {
@@ -134,8 +136,10 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
     case SynthParameter::Osc2Transpose:
         p.osc2Transpose = val;
         break;
-    case SynthParameter::OscBalance:
-        p.osc1Vol = 1.f - val;
+    case SynthParameter::Osc1Gain:
+        p.osc1Vol = val;
+        break;
+    case SynthParameter::Osc2Gain:
         p.osc2Vol = val;
         break;
     case SynthParameter::Cutoff:
@@ -159,6 +163,9 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
     case SynthParameter::EnvRelease:
         p.envR = val;
         break;
+    case SynthParameter::Gain:
+        p.gain = val;
+        break;
     default:
         break;
     }
@@ -166,13 +173,13 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
 AudioTest atest(synth);
 bool audioInited = false;	
 
-void audioInit()
+static void audioInit()
 {
-    uBit.audio.setSpeakerEnabled(false);
+    // manage speaker from PXT
+    //uBit.audio.setSpeakerEnabled(false);
     uBit.audio.setVolume(255);
     uBit.audio.enable();
     uBit.audio.mixer.addChannel(atest);
-    synth.setGain(0.4f);
     atest.go();
     audioInited = true;
 }

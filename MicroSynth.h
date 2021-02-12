@@ -181,6 +181,7 @@ struct Preset
     float envA = 0.8f, envD = 0.3f, envS = 0.3f, envR = 1.f;
     OscType lfoShape;
     float lfoFreq;
+    float gain = 0.4f;
 #if 1
     void dump()
     {
@@ -318,7 +319,6 @@ class Synth
 {
     Voice voice[NumVoices];
     Preset* preset_;
-    float gain_ = 1.f;
     float mixbuf[256];
 
     int sample_pos_ = -1;
@@ -356,10 +356,6 @@ public:
     {
         preset_ = p;
     }
-    void setGain(float g)
-    {
-        gain_ = g;
-    }
     void playSample(const uint8_t* sample, int len, float gain = 1.f)
     {
         sample_table_ = sample;
@@ -378,14 +374,6 @@ public:
     {
         int ind = findVoice(note);
         if (ind != -1) voice[ind].detrig();
-    }
-    float process()
-    {
-        float out = 0.f;
-        for (auto& v : voice) {
-            if (v.getNote() != -1) out += v.process();
-        }
-        return std::max(std::min(gain_*out, 1.f), -1.f);
     }
 
     void process_noclip(float* buf, int num)
@@ -411,7 +399,7 @@ public:
     {
         process_noclip(buf, num);
         for (int i = 0; i < num; ++i) {
-            buf[i] = std::max(std::min(gain_*buf[i], 1.f), -1.f);
+            buf[i] = std::max(std::min(preset_->gain*buf[i], 1.f), -1.f);
         }
     }
 
@@ -419,7 +407,7 @@ public:
     {
         process_noclip(mixbuf, num);
         for (int i = 0; i < num; ++i) {
-            buf[i] = std::max(std::min(static_cast<int>(gain_*mixbuf[i]*511.f + 512.f), 1023), 0);
+            buf[i] = std::max(std::min(static_cast<int>(preset_->gain*mixbuf[i]*511.f + 512.f), 1023), 0);
         }
     }
 };

@@ -62,20 +62,22 @@
     //% osc2transpose
     Osc2Transpose = 2,
     //% oscbalance
-    OscBalance = 3,
+    Osc1Gain = 3,
+    Osc2Gain = 4,
     //% cutoff
-    Cutoff = 4,
+    Cutoff = 5,
     //% resonance
-    Resonance = 5,
+    Resonance = 6,
     //% envelope amount
-    FilterEnvAmount = 6,
+    FilterEnvAmount = 7,
     //% envelope attack
-    EnvAttackTime = 7,
+    EnvAttackTime = 8,
     //% envelope decay
-    EnvDecayTime = 8,
+    EnvDecayTime = 9,
     //% envelope sustain
-    EnvSustainLevel = 9,
-    EnvRelease = 10,
+    EnvSustainLevel = 10,
+    EnvRelease = 11,
+    Gain = 12,
     }
 
 
