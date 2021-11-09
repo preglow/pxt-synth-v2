@@ -10,6 +10,7 @@
         "main.blocks",
         "main.ts",
         "synth.cpp",
+        "MicroSynth.h",
         "shims.d.ts",
         "enums.d.ts",
         "README.md"

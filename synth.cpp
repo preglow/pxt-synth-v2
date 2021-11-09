@@ -1,8 +1,7 @@
 #include "pxt.h"
 #include "MicroBit.h"
-
-//% block="Orch blocks"
-namespace orchestra {
+#include "MicroSynth.h"
+#include <cmath>
 
 enum class SynthPreset {
     //% preset1
@@ -17,44 +16,22 @@ enum class SynthPreset {
     User2
 };
 
-static constexpr int NumVoices = 15;
+//% block="Orch blocks"
+namespace orchestra {
 
-class Voice 
-{
-    float acc_ = 0.f, delta_ = 0.f;
-    float env_ = 0.f, envFalloff_ = 0.99999f;
-public:
-    float process()
-    {
-        float out = (acc_*2.f - 1.f)*env_;
-        acc_ += delta_;
-        env_ *= envFalloff_;
-        if (acc_ > 1.f) acc_ -= 1.f;
-        return out;
-    }
+static constexpr int NumVoices = 8;
 
-    void setFreq(float f)
-    {
-        delta_ = f/44100.;
-    }
-    void setEnv(float f)
-    {
-        envFalloff_ = f;
-    }
-    void trig()
-    {
-        env_ = 1.f;
-    }
-};
+Preset preset;
+Synth<NumVoices> synth(&preset);
 
 class AudioTest : public DataSource
 {
 	DataSink* downStream_;
     int voiceno_ = 0;
     bool init_ = false;
+    Synth<NumVoices>& synth;
 public:
-    Voice voice[NumVoices];
-	AudioTest()
+	AudioTest(Synth<NumVoices>& s) : synth(s)
 	{
 	}
     void go()
@@ -78,20 +55,15 @@ public:
 		uint16_t* out = (uint16_t*)&buf[0];
 
 		for (int i = 0; i < 256; ++i) {
-            float y = 0.f;
-            for (int v = 0; v < NumVoices; ++v)
-                y += voice[v].process();
-		    out[i] = (y*0.3f + 1.f)*511.f;
+            float y = synth.process();
+            //for (int v = 0; v < NumVoices; ++v)
+            //    y += voice[v].process();
+		    out[i] = y;
+            //out[i] = (y*0.3f + 1.f)*511.f;
 		}
         downStream_->pullRequest();
 		return buf;
 	}
-    Voice& nextVoice()
-    {
-        auto& v = voice[voiceno_++];
-        if (voiceno_ > NumVoices) voiceno_ = 0;
-        return v;
-    }
 };
 
 /**
@@ -106,7 +78,7 @@ void setPreset(SynthPreset preset)
 {
 }
 
-AudioTest atest;
+AudioTest atest(synth);
 bool audioInited = false;	
 /**
  * Set frequency of pellets.
@@ -114,8 +86,8 @@ bool audioInited = false;
  */
 //% help=orch/set-freq weight=30
 //% group="Orchestra"
-//% blockId=orch_set_freq block block="set frequenzy %freq"
-//% freq.min=20 freq.max=4000
+//% blockId=orch_set_freq block block="set frequency %freq"
+//% freq.min=20 freq.max=8000
 //% freq.defl=200
 void setFreq(int freq)
 {
@@ -127,12 +99,15 @@ void setFreq(int freq)
         atest.go();
         audioInited = true;
     }
-    auto& voice = atest.nextVoice();
-    //uBit.sleep(random(300) + 100);
+    //while (1) {
+        //uBit.sleep(1000);
+        synth.noteOn(45 + uBit.random(12), 1.f, 1.0f);
+    //auto& voice = atest.nextVoice();
     //uBit.audio.soundExpressions.playAsync("giggle");
     //uBit.display.scrollAsync("Hel");
-    voice.setFreq(freq); 
-    voice.trig();
+    
+    //voice.setFreq(freq); 
+    //voice.trig();
 }
 
 }
