@@ -144,7 +144,7 @@ public:
 
 enum class OscType
 {
-    Saw,
+    Saw = 0,
     Pulse,
     Triangle
 };
@@ -157,9 +157,7 @@ enum class FilterType
 };
 
 #if 0
-osc1 pw
 osc1 pwm
-osc2 pw
 ocs2 pwm
 subosc vol?
 noise vol
@@ -172,14 +170,15 @@ vca env/gate
 
 struct Preset
 {
-    OscType osc1Shape, osc2Shape;
-    float osc2Transpose = 2.001f;
+    OscType osc1Shape = OscType::Saw, osc2Shape = OscType::Saw;
+    float osc2Transpose = 1.501f;
     float osc1Vol = 0.5f, osc2Vol = 0.5f;
+    float osc1Pw = 0.f, osc2Pw = 0.f;
     FilterType vcfType;
-    float vcfCutoff = 0.05f;
-    float vcfReso = 0.01f;
+    float vcfCutoff = 0.01f;
+    float vcfReso = 0.9f;
     float vcfEnv = 0.1f;
-    float envA = 0.1f, envD = 0.3f, envS = 0.5f, envR = 1.f;
+    float envA = 0.8f, envD = 0.3f, envS = 0.3f, envR = 1.f;
     OscType lfoShape;
     float lfoFreq;
 #if 1
@@ -218,22 +217,23 @@ public:
         case OscType::Saw:
             return out;
         case OscType::Pulse:
-            return acc_ > pw_ ? 1.f : -1.f;
+            return out > pw_ ? 1.f : -1.f;
         case OscType::Triangle:
         default:
-            return fabsf(acc_)*2.f - 1.f;
+            return fabsf(out)*2.f - 1.f;
         }
     };
     void setFreq(float f)
     {
         delta_ = 2.f*f/44100.f;
     }
-    void setType(OscType /*t*/)
+    void setType(OscType t)
     {
-
+        wave_ = t;
     }
-    void setPW(float /*pw*/)
+    void setPW(float pw)
     {
+        pw_ = pw;
     }
 };
 
@@ -252,6 +252,8 @@ class Voice
         const Preset& p = *preset_;
         const float r_SR = 1.f/44100.f;
         filter_.reset();
+        osc_[0].setPW(p.osc1Pw); osc_[1].setPW(p.osc2Pw);
+        osc_[0].setType(p.osc1Shape); osc_[1].setType(p.osc2Shape);
         env_.set(p.envA, p.envD, p.envS, p.envR);
         filter_.set(p.vcfCutoff, p.vcfReso);
     }
@@ -295,7 +297,6 @@ public:
         apply_preset();
         env_.reset();
         env_.gate();
-        osc_[0].setPW(1.f);  osc_[1].setPW(1.f);
     }
     void detrig()
     {
@@ -346,7 +347,14 @@ class Synth
             noteToHz_[i] = 440.f*powf(2.f, (i - 69)/12.f);
     }
 public:
-    Synth(Preset* preset) : preset_(preset) { }
+    Synth(Preset* preset) : preset_(preset)
+    {
+        calcTables();
+    }
+    void setPreset(Preset* p)
+    {
+        preset_ = p;
+    }
     void setGain(float g)
     {
         gain_ = g;
@@ -362,7 +370,7 @@ public:
         Voice& v = alloc(note);
         const int length = duration != 0.f ? static_cast<int>(duration*44100.f) : -1;
         v.trig(note, preset_, length);
-        v.setFreq((440.f*powf(2.f, (note - 69)/12.f)));
+        v.setFreq(noteToHz_[note]);
     }
     void noteOff(int8_t note)
     {

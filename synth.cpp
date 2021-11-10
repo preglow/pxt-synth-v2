@@ -16,13 +16,44 @@ enum class SynthPreset {
     User2
 };
 
+enum class SynthUserPreset {
+    //% user1
+    User1 = 0,
+    //% user2
+    User2
+};
+
+enum class SynthParameter {
+    //% osc1shape
+    Osc1Shape = 0,
+    //% osc2shape
+    Osc2Shape,
+    //% osc2transpose
+    Osc2Transpose,
+    //% oscbalance
+    OscBalance,
+    //% cutoff
+    Cutoff,
+    //% resonance
+    Resonance,
+    //% envelope amount
+    FilterEnvAmount,
+    //% envelope attack
+    EnvAttackTime,
+    //% envelope decay
+    EnvDecayTime,
+    //% envelope sustain
+    EnvSustainLevel,
+    EnvRelease
+};
+
 //% block="Orch blocks"
 namespace orchestra {
 
 static constexpr int NumVoices = 8;
 
-Preset preset;
-Synth<NumVoices> synth(&preset);
+Preset presets[5];
+Synth<NumVoices> synth(&presets[0]);
 
 class AudioTest : public DataSource
 {
@@ -59,49 +90,97 @@ public:
 };
 
 /**
- * Set synth voice preset.
+ * Set synth preset.
  * @param preset synth preset
  */
 //% help=orch/set-preset weight=30
 //% group="Orchestra"
 //% blockId=orch_set_preset block block="set preset %preset"
-//% freq.defl=200
 void setPreset(SynthPreset preset)
 {
+    const int preset_index = static_cast<int>(preset);
+    synth.setPreset(&presets[preset_index]);
+}
+
+/**
+ * Set synth preset parameters.
+ * @param preset synth preset
+ * @param param synth parameter
+ * @val parameter value
+ */
+//% help=orch/set-synth-parameter weight=30
+//% group="Orchestra"
+//% blockId=orch_set_paramt block block="set preset %preset parameter %param to %val"
+void setParameter(SynthUserPreset preset, SynthParameter param, float val)
+{
+    auto& p = presets[3 + static_cast<int>(preset)];
+    switch (param) {
+    case SynthParameter::Osc1Shape:
+        p.osc1Shape = static_cast<OscType>(static_cast<int>(val));
+        break;
+    case SynthParameter::Osc2Shape:
+        p.osc2Shape = static_cast<OscType>(static_cast<int>(val));
+        break;
+    case SynthParameter::Osc2Transpose:
+        p.osc2Transpose = val;
+        break;
+    case SynthParameter::OscBalance:
+        p.osc1Vol = 1.f - val;
+        p.osc2Vol = val;
+        break;
+    case SynthParameter::Cutoff:
+        p.vcfCutoff = val;
+        break;
+    case SynthParameter::Resonance:
+        p.vcfReso = val;
+        break;
+    case SynthParameter::FilterEnvAmount:
+        p.vcfEnv = val;
+        break;
+    case SynthParameter::EnvAttackTime:
+        p.envA = val;
+        break;
+    case SynthParameter::EnvDecayTime:
+        p.envD = val;
+        break;
+    case SynthParameter::EnvSustainLevel:
+        p.envS = val;
+        break;
+    case SynthParameter::EnvRelease:
+        p.envR = val;
+        break;
+    default:
+        break;
+    }
 }
 
 AudioTest atest(synth);
 bool audioInited = false;	
 /**
- * Set frequency of pellets.
- * @param freq frequency 20..4000
+ * Trigger a note.
+ * @param note note number, 0 to 127, MIDI
+ * @param duration duration in ms
+ * @param velocity velocity, 0 to 127, MIDI 
  */
-//% help=orch/set-freq weight=30
+//% help=orch/note weight=30
 //% group="Orchestra"
-//% blockId=orch_set_freq block block="set frequency %freq"
-//% freq.min=20 freq.max=8000
-//% freq.defl=200
-void setFreq(int freq)
+//% inlineInputMode=inline
+//% blockId=orch_note block block="trigger note %note duration %duration velocity %velocity"
+//% note.min=0 note.max=127 note.defl=69
+//% duration.min=1 duration.max=10000 duration.defl=1000
+//% velocity.min=0 velocity.max=127 velocity.defl=127
+void note(int note, int duration, int velocity)
 {
-    static constexpr uint8_t minor[7] = { 0, 2, 4, 5, 7, 9, 11 };
     if (!audioInited) {
         uBit.audio.setSpeakerEnabled(false);
         uBit.audio.setVolume(255);
         uBit.audio.enable();
         uBit.audio.mixer.addChannel(atest);
-        synth.setGain(0.2f);
+        synth.setGain(0.4f);
         atest.go();
         audioInited = true;
     }
-    //while (1) {
-        //uBit.sleep(1000);
-        synth.noteOn(42 + uBit.random(3)*12 + minor[uBit.random(7)], 1.f, 1.0f);
-    //auto& voice = atest.nextVoice();
-    //uBit.audio.soundExpressions.playAsync("giggle");
-    //uBit.display.scrollAsync("Hel");
-    
-    //voice.setFreq(freq); 
-    //voice.trig();
+    synth.noteOn(note, velocity/127.f, duration/1000.f); 
 }
 
 }
