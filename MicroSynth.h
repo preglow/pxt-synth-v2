@@ -10,9 +10,6 @@
 
 #pragma once
 #include <algorithm>
-#include <cmath>
-
-static constexpr int NumVoices = 8;
 
     enum FilterMode {
         FILTER_MODE_LOW_PASS,
@@ -762,6 +759,8 @@ class Svf {
                 hard_reset_ = hard_reset;
             }
             bool isDone() const { return done_; }
+            float value() const { return value_; }
+            void setValue(float v) { value_ = v; }
         private:
             inline float Interpolate8(const float* table, float index) const {
                 index *= 256.0f;
@@ -823,13 +822,13 @@ vca env/gate
 struct Preset
 {
     OscType osc1Shape, osc2Shape;
-    float osc2Transpose = 1.5f;
+    float osc2Transpose = 1.001f;
     float osc1Vol = 0.5f, osc2Vol = 0.5f;
     FilterType vcfType;
-    float vcfCutoff = 0.01f;
-    float vcfReso = 10.f;
-    float vcfEnv = 0.15f;
-    float envA = 1.0f, envD = 0.5f, envS = 0.5f, envR = 1.f;
+    float vcfCutoff = 0.05f;
+    float vcfReso = 7.f;
+    float vcfEnv = 0.1f;
+    float envA = 0.3f, envD = 0.1f, envS = 1.f, envR = 3.f;
     OscType lfoShape;
     float lfoFreq;
 #if 1
@@ -908,7 +907,6 @@ class Voice
     Svf filter_;
     MultistageEnvelope env_;
     int gateLength_ = -1;
-    //float f = 0.1f, r = 1.f;
     uint8_t envflags = 0;
     int8_t note_ = -1;
     bool stopping_ = false;
@@ -920,8 +918,6 @@ class Voice
         filter_.Reset();
         env_.set_adsr(1.f/p.envA*r_SR, 1.f/p.envD*r_SR, p.envS, 1.f/p.envR*r_SR);
         filter_.set_f_q<FREQUENCY_FAST>(p.vcfCutoff, p.vcfReso);
-        //f = p.vcfCutoff;
-        //r = p.vcfReso;
     }
 public:
     Voice()
@@ -933,10 +929,7 @@ public:
     {
         //std::ostringstream lol;
         float env = env_.Process(envflags);
-        float filt_freq = preset_->vcfCutoff + env*preset_->vcfEnv;
 
-        setCutoff(filt_freq > 1.f ? 1.f : filt_freq);
-        filter_.set_f_q<FREQUENCY_FAST>(filt_freq, preset_->vcfReso);
         auto oscs = osc_[0].process()*preset_->osc1Vol + osc_[1].process()*preset_->osc2Vol;
         auto out = env*filter_.Process<FILTER_MODE_LOW_PASS>(oscs);
         if (envflags & ENVELOPE_FLAG_RISING_EDGE) envflags = ENVELOPE_FLAG_GATE;
@@ -945,6 +938,15 @@ public:
         if (gateLength_ <= 0 && !stopping_) detrig();
         if (env_.isDone()) note_ = -1;
         return out;
+    }
+    void process(float* buf, int num)
+    {
+        float filt_freq = preset_->vcfCutoff + env_.value()*preset_->vcfEnv;
+        //setCutoff(filt_freq > 1.f ? 1.f : filt_freq);
+        filter_.set_f_q<FREQUENCY_FAST>(filt_freq, preset_->vcfReso);
+        for (int i = 0; i < num; ++i) {
+            buf[i] += process();
+        }
     }
     void setFreq(float f)
     {
@@ -968,6 +970,7 @@ public:
         note_ = note;
         gateLength_ = length;
         envflags = ENVELOPE_FLAG_RISING_EDGE;
+        env_.setValue(0.f);
         apply_preset();
         osc_[0].setPW(1.f);  osc_[1].setPW(1.f);
     }
@@ -986,11 +989,13 @@ public:
     }
 };
 
-template <int NumVoices>
+template <int NumVoices = 16>
 class Synth
 {
     Voice voice[NumVoices];
     Preset* preset_;
+    float gain_ = 1.f;
+    float mixbuf[256];
     int findVoice(int8_t note)
     {
         for (int i = 0; i < NumVoices; ++i) {
@@ -1007,9 +1012,13 @@ class Synth
     };
 public:
     Synth(Preset* preset) : preset_(preset) { }
+    void setGain(float g)
+    {
+        gain_ = g;
+    }
     void noteOn(int8_t note, float velocity, float duration = 0.f)
     {
-        auto& v = alloc(note);
+        Voice& v = alloc(note);
         v.trig(note, preset_, static_cast<int>(duration*44100.f));
         v.setFreq((440.*powf(2.f, (note - 69)/12.f)));
     }
@@ -1018,33 +1027,36 @@ public:
         int ind = findVoice(note);
         if (ind != -1) voice[ind].detrig();
     }
-    uint16_t process()
+    float process()
     {
         float out = 0.f;
         for (auto& v : voice) {
             if (v.getNote() != -1) out += v.process();
         }
-        return std::max(std::min(static_cast<int>(0.2f*out*511.f + 512.f), 1023), 0);
+        return std::max(std::min(gain_*out, 1.f), -1.f);
     }
-#if 0
     void process(float* buf, int num)
     {
-        // k rate stuff
+        std::fill_n(buf, num, 0.f);
 
-        // render block
+        for (auto& v : voice) {
+            if (v.getNote() == -1) continue;
+            v.process(buf, num);
+        }
+        for (int i = 0; i < num; ++i) {
+            buf[i] = std::max(std::min(gain_*buf[i], 1.f), -1.f);
+        }
     }
-#endif
-    /*
-    void setCutoff(float c)
+    void process(uint16_t* buf, int num)
     {
-        for (auto& v : voice) v.setCutoff(c);
-    }
+        std::fill_n(mixbuf, num, 0.f);
 
-    void setRes(float r)
-    {
-        for (auto& v : voice) v.setRes(r);
+        for (auto& v : voice) {
+            if (v.getNote() == -1) continue;
+            v.process(mixbuf, num);
+        }
+        for (int i = 0; i < num; ++i) {
+            buf[i] = std::max(std::min(static_cast<uint16_t>(gain_*mixbuf[i]*511.f + 512.f), 1023), 0);
+        }
     }
-    */
 };
-
-
