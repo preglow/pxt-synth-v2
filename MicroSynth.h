@@ -173,7 +173,7 @@ vca env/gate
 struct Preset
 {
     OscType osc1Shape, osc2Shape;
-    float osc2Transpose = 1.001f;
+    float osc2Transpose = 2.001f;
     float osc1Vol = 0.5f, osc2Vol = 0.5f;
     FilterType vcfType;
     float vcfCutoff = 0.05f;
@@ -409,7 +409,7 @@ public:
     {
         process_noclip(mixbuf, num);
         for (int i = 0; i < num; ++i) {
-            buf[i] = std::max(std::min(static_cast<uint16_t>(gain_*mixbuf[i]*511.f + 512.f), 1023), 0);
+            buf[i] = std::max(std::min(static_cast<int>(gain_*mixbuf[i]*511.f + 512.f), 1023), 0);
         }
     }
 };

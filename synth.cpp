@@ -26,8 +26,7 @@ Synth<NumVoices> synth(&preset);
 
 class AudioTest : public DataSource
 {
-	DataSink* downStream_;
-    int voiceno_ = 0;
+    DataSink* downStream_;
     bool init_ = false;
     Synth<NumVoices>& synth;
 public:
@@ -53,14 +52,7 @@ public:
 	{
 		ManagedBuffer buf(512);
 		uint16_t* out = (uint16_t*)&buf[0];
-
-		for (int i = 0; i < 256; ++i) {
-            float y = synth.process();
-            //for (int v = 0; v < NumVoices; ++v)
-            //    y += voice[v].process();
-		    out[i] = y;
-            //out[i] = (y*0.3f + 1.f)*511.f;
-		}
+        synth.process(out, 256);
         downStream_->pullRequest();
 		return buf;
 	}
@@ -91,17 +83,19 @@ bool audioInited = false;
 //% freq.defl=200
 void setFreq(int freq)
 {
+    static constexpr uint8_t minor[7] = { 0, 2, 4, 5, 7, 9, 11 };
     if (!audioInited) {
         uBit.audio.setSpeakerEnabled(false);
         uBit.audio.setVolume(255);
         uBit.audio.enable();
         uBit.audio.mixer.addChannel(atest);
+        synth.setGain(0.2f);
         atest.go();
         audioInited = true;
     }
     //while (1) {
         //uBit.sleep(1000);
-        synth.noteOn(45 + uBit.random(12), 1.f, 1.0f);
+        synth.noteOn(42 + uBit.random(3)*12 + minor[uBit.random(7)], 1.f, 1.0f);
     //auto& voice = atest.nextVoice();
     //uBit.audio.soundExpressions.playAsync("giggle");
     //uBit.display.scrollAsync("Hel");
