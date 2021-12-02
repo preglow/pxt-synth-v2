@@ -323,7 +323,8 @@ class Synth
 
     int sample_pos_ = -1;
     int sample_len_ = 0;
-    uint8_t* sample_table_;
+    float sample_gain_ = 1.f;
+    const uint8_t* sample_table_;
 
     float noteToHz_[128];
 
@@ -359,10 +360,11 @@ public:
     {
         gain_ = g;
     }
-    void playSample(uint8_t* sample, int len)
+    void playSample(const uint8_t* sample, int len, float gain = 1.f)
     {
         sample_table_ = sample;
         sample_len_ = len;
+        sample_gain_ = gain/128.f; // bake in 8 bit conversion
         sample_pos_ = 0;
     }
     void noteOn(int8_t note, float /*velocity*/, float duration = 0.f)
@@ -396,7 +398,7 @@ public:
         }
         if (sample_pos_ > -1) {
             for (int i = 0; i < num; ++i) {
-                buf[i] += static_cast<float>(sample_table_[sample_pos_++] - 128.f)/128.f;
+                buf[i] += static_cast<float>(sample_table_[sample_pos_++] - 128.f)*sample_gain_;
                 if (sample_pos_ >= sample_len_) {
                     sample_pos_ = -1;
                     break;
