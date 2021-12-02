@@ -18,12 +18,22 @@ declare namespace orchestra {
      * Set synth preset parameters.
      * @param preset synth preset
      * @param param synth parameter
-     * @val parameter value
+     * @param val parameter value
      */
     //% help=orch/set-synth-parameter weight=30
     //% group="Orchestra"
-    //% blockId=orch_set_paramt block block="set preset %preset parameter %param to %val" shim=orchestra::setParameter
+    //% blockId=orch_set_parameter block block="set preset %preset parameter %param to %val" shim=orchestra::setParameter
     function setParameter(preset: SynthUserPreset, param: SynthParameter, val: number): void;
+
+    /**
+     * Play sample.
+     * @param sample which sample
+     * @param gain gain
+     */
+    //% help=orch/play-sample weight=30
+    //% group="Orchestra"
+    //% blockId=orch_play_sample block block="play sample %sample with gain %gain" shim=orchestra::playSample
+    function playSample(sample: Sample, gain: number): void;
 
     /**
      * Trigger a note.

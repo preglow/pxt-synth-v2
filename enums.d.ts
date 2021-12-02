@@ -77,6 +77,16 @@
     EnvSustainLevel = 9,
     EnvRelease = 10,
     }
+
+
+    declare const enum Sample {
+    BassDrum = 0,
+    SnareDrum = 1,
+    Clap = 2,
+    HighHat = 3,
+    OpenHighHat = 4,
+    Cowbell = 5,
+    }
 declare namespace orchestra {
 }
 

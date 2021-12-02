@@ -11,6 +11,7 @@
         "main.ts",
         "synth.cpp",
         "MicroSynth.h",
+        "samples.h",
         "shims.d.ts",
         "enums.d.ts",
         "README.md"

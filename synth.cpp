@@ -1,3 +1,4 @@
+#include "samples.h"
 #include "pxt.h"
 #include "MicroBit.h"
 #include "MicroSynth.h"
@@ -45,6 +46,15 @@ enum class SynthParameter {
     //% envelope sustain
     EnvSustainLevel,
     EnvRelease
+};
+
+enum class Sample {
+    BassDrum = 0,
+    SnareDrum,
+    Clap,
+    HighHat,
+    OpenHighHat,
+    Cowbell
 };
 
 //% block="Orch blocks"
@@ -106,11 +116,11 @@ void setPreset(SynthPreset preset)
  * Set synth preset parameters.
  * @param preset synth preset
  * @param param synth parameter
- * @val parameter value
+ * @param val parameter value
  */
 //% help=orch/set-synth-parameter weight=30
 //% group="Orchestra"
-//% blockId=orch_set_paramt block block="set preset %preset parameter %param to %val"
+//% blockId=orch_set_parameter block block="set preset %preset parameter %param to %val"
 void setParameter(SynthUserPreset preset, SynthParameter param, float val)
 {
     auto& p = presets[3 + static_cast<int>(preset)];
@@ -153,9 +163,40 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
         break;
     }
 }
-
 AudioTest atest(synth);
 bool audioInited = false;	
+
+void audioInit()
+{
+    uBit.audio.setSpeakerEnabled(false);
+    uBit.audio.setVolume(255);
+    uBit.audio.enable();
+    uBit.audio.mixer.addChannel(atest);
+    synth.setGain(0.4f);
+    atest.go();
+    audioInited = true;
+}
+
+/**
+ * Play sample.
+ * @param sample which sample
+ * @param gain gain
+ */
+//% help=orch/play-sample weight=30
+//% group="Orchestra"
+//% blockId=orch_play_sample block block="play sample %sample with gain %gain"
+void playSample(Sample sample, float gain)
+{
+    const uint8_t* samples[] = { BD_sample, SD_sample, CL_sample, HH_sample, OHH_sample, Cowbell_sample };
+    const uint16_t sample_len[] = { sizeof(BD_sample), sizeof(SD_sample), sizeof(CL_sample), sizeof(HH_sample), sizeof(OHH_sample), sizeof(Cowbell_sample) };
+    const int sample_index = static_cast<int>(sample);
+    const uint8_t* buf = samples[sample_index];
+    const auto len = sample_len[sample_index];
+
+    if (!audioInited) audioInit();
+    synth.playSample(buf, len, gain);
+}
+
 /**
  * Trigger a note.
  * @param note note number, 0 to 127, MIDI
@@ -171,16 +212,8 @@ bool audioInited = false;
 //% velocity.min=0 velocity.max=127 velocity.defl=127
 void note(int note, int duration, int velocity)
 {
-    if (!audioInited) {
-        uBit.audio.setSpeakerEnabled(false);
-        uBit.audio.setVolume(255);
-        uBit.audio.enable();
-        uBit.audio.mixer.addChannel(atest);
-        synth.setGain(0.4f);
-        atest.go();
-        audioInited = true;
-    }
-    synth.noteOn(note, velocity/127.f, duration/1000.f); 
+    if (!audioInited) audioInit();
+    synth.noteOn(note, velocity/127.f, duration/1000.f);
 }
 
 }
