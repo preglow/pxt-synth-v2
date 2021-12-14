@@ -190,20 +190,6 @@ struct Preset
 #endif
 };
 
-enum class PrebakedPresets
-{
-    //% preset1
-    Preset1 = 0,
-    //% preset2
-    Preset2,
-    //% preset3
-    Preset3,
-    //% user1
-    User1,
-    //% user2
-    User2
-};
-
 class Osc
 {
     float acc_ = 0.f, delta_ = 0.f, pw_ = 0.f;

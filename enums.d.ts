@@ -17,21 +17,6 @@
     }
 
 
-    declare const enum PrebakedPresets
-    {
-    //% preset1
-    Preset1 = 0,
-    //% preset2
-    Preset2 = 1,
-    //% preset3
-    Preset3 = 2,
-    //% user1
-    User1 = 3,
-    //% user2
-    User2 = 4,
-    }
-
-
     declare const enum SynthPreset {
     //% preset1
     Preset1 = 0,
