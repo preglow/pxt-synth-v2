@@ -102,19 +102,6 @@ public:
 };
 
 /**
- * Set synth preset.
- * @param preset synth preset
- */
-//% help=orch/set-preset weight=30
-//% group="Orchestra"
-//% blockId=orch_set_preset block block="set preset %preset"
-void setPreset(SynthPreset preset)
-{
-    const int preset_index = static_cast<int>(preset);
-    synth.setPreset(&presets[preset_index]);
-}
-
-/**
  * Set synth preset parameters.
  * @param preset synth preset
  * @param param synth parameter
@@ -209,16 +196,20 @@ void playSample(Sample sample, float gain)
  * @param note note number, 0 to 127, MIDI
  * @param duration duration in ms
  * @param velocity velocity, 0 to 127, MIDI 
+ * @param preset preset
  */
 //% help=orch/note weight=30
 //% group="Orchestra"
 //% inlineInputMode=inline
-//% blockId=orch_note block block="trigger note %note duration %duration velocity %velocity"
+//% blockId=orch_note block block="trigger note %note with duration %duration and velocity %velocity using preset %preset"
 //% note.min=0 note.max=127 note.defl=69
 //% duration.min=1 duration.max=10000 duration.defl=1000
 //% velocity.min=0 velocity.max=127 velocity.defl=127
-void note(int note, int duration, int velocity)
+//% preset.defl=1
+void note(int note, int duration, int velocity, SynthPreset preset)
 {
+    const int preset_index = static_cast<int>(preset);
+    synth.setPreset(&presets[preset_index]);
     if (!audioInited) audioInit();
     synth.noteOn(note, velocity/127.f, duration/1000.f);
 }
