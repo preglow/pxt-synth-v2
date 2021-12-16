@@ -1,8 +1,13 @@
-#include "samples.h"
 #include "pxt.h"
 #include "MicroBit.h"
 #include "MicroSynth.h"
 #include <cmath>
+#include "samples/BD_sample.h"
+#include "samples/SD_sample.h"
+#include "samples/CL_sample.h"
+#include "samples/HH_sample.h"
+#include "samples/OHH_sample.h"
+#include "samples/Cowbell_sample.h"
 
 enum class SynthPreset {
     //% preset1
