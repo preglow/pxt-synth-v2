@@ -10,22 +10,26 @@
         "main.blocks",
         "main.ts",
         "synth.cpp",
-        "synth.ts",
         "MicroSynth.h",
+        "shims.d.ts",
+        "enums.d.ts",
+        "README.md",
+        "synth.ts",
         "samples/BD_sample.h",
         "samples/SD_sample.h",
         "samples/CL_sample.h",
         "samples/HH_sample.h",
         "samples/OHH_sample.h",
-        "samples/Cowbell_sample.h",
-        "shims.d.ts",
-        "enums.d.ts",
-        "README.md"
+        "samples/Cowbell_sample.h"
     ],
+    "targetVersions": {
+        "target": "4.0.16",
+        "targetId": "microbit"
+    },
     "supportedTargets": [
         "microbit"
     ],
-    "preferredEditor": "blocksprj",
+    "preferredEditor": "tsprj",
     "disablesVariants": [
         "mbdal"
     ]
