@@ -46,23 +46,31 @@
     Osc2Shape = 1,
     //% osc2transpose
     Osc2Transpose = 2,
-    //% oscbalance
-    Osc1Gain = 3,
-    Osc2Gain = 4,
+    Osc1Pw = 3,
+    Osc2Pw = 4,
+    Osc1Pwm = 5,
+    Osc2Pwm = 6,
+    Osc1Gain = 7,
+    Osc2Gain = 8,
     //% cutoff
-    Cutoff = 5,
+    Cutoff = 9,
     //% resonance
-    Resonance = 6,
+    Resonance = 10,
     //% envelope amount
-    FilterEnvAmount = 7,
+    FilterEnvAmount = 11,
+    FilterLfoAmount = 12,
     //% envelope attack
-    EnvAttackTime = 8,
+    EnvAttackTime = 13,
     //% envelope decay
-    EnvDecayTime = 9,
+    EnvDecayTime = 14,
     //% envelope sustain
-    EnvSustainLevel = 10,
-    EnvRelease = 11,
-    Gain = 12,
+    EnvSustainLevel = 15,
+    EnvRelease = 16,
+    Gain = 17,
+    LFOFreq = 18,
+    LFOShape = 19,
+    VibratoFreq = 20,
+    VibratoAmount = 21,
     }
 
 

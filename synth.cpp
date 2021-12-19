@@ -36,7 +36,10 @@ enum class SynthParameter {
     Osc2Shape,
     //% osc2transpose
     Osc2Transpose,
-    //% oscbalance
+    Osc1Pw,
+    Osc2Pw,
+    Osc1Pwm,
+    Osc2Pwm,
     Osc1Gain,
     Osc2Gain,
     //% cutoff
@@ -45,6 +48,7 @@ enum class SynthParameter {
     Resonance,
     //% envelope amount
     FilterEnvAmount,
+    FilterLfoAmount,
     //% envelope attack
     EnvAttackTime,
     //% envelope decay
@@ -52,7 +56,11 @@ enum class SynthParameter {
     //% envelope sustain
     EnvSustainLevel,
     EnvRelease,
-    Gain
+    Gain,
+    LFOFreq,
+    LFOShape,
+    VibratoFreq,
+    VibratoAmount
 };
 
 enum class Sample {
@@ -128,6 +136,18 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
     case SynthParameter::Osc2Transpose:
         p.osc2Transpose = val;
         break;
+    case SynthParameter::Osc1Pw:
+        p.osc1Pw = val;
+        break;
+    case SynthParameter::Osc2Pw:
+        p.osc2Pw = val;
+        break;
+    case SynthParameter::Osc1Pwm:
+        p.osc1Pwm = val;
+        break;
+    case SynthParameter::Osc2Pwm:
+        p.osc2Pwm = val;
+        break;
     case SynthParameter::Osc1Gain:
         p.osc1Vol = val;
         break;
@@ -142,6 +162,9 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
         break;
     case SynthParameter::FilterEnvAmount:
         p.vcfEnv = val;
+        break;
+    case SynthParameter::FilterLfoAmount:
+        p.vcfLfo = val;
         break;
     case SynthParameter::EnvAttackTime:
         p.envA = val;
@@ -158,6 +181,17 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
     case SynthParameter::Gain:
         p.gain = val;
         break;
+    case SynthParameter::LFOFreq:
+        p.lfoFreq = val;
+        break;
+    case SynthParameter::LFOShape:
+        p.lfoShape = static_cast<OscType>(static_cast<int>(val));
+        break;
+    case SynthParameter::VibratoFreq:
+        p.vibFreq = val;
+        break;
+    case SynthParameter::VibratoAmount:
+        p.vibAmount = val;
     default:
         break;
     }
