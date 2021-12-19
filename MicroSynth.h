@@ -13,6 +13,29 @@
 
 #define _PI 3.14159265359f
 
+static constexpr int BlockSize = 256;
+
+struct SynthTables
+{
+    static float notetab[129]; // including guard point
+    static bool inited;
+    static void init()
+    {
+        // singletons are bad, but assume no race conditions, true for microbit use
+        if (inited) return;
+        for (int i = 0; i < 128; ++i)
+            notetab[i] = powf(2.f, (i - 69)/12.f);
+        notetab[128] = notetab[127];
+        inited = true;
+    }
+    static float interpNote(float ind)
+    {
+        const int i = std::min(std::max(static_cast<int>(ind), 0), 127);
+        const float frac = ind - i;
+        return (1.f - frac)*notetab[i] + frac*notetab[i + 1];
+    }
+};
+
 // zavilishin svf
 class SVF
 {
@@ -32,9 +55,12 @@ class SVF
         // stolen from mutable instruments
         // TODO for 48 kHz
         // TODO check out license, preferably replace with 44.1khz version
-        const float a = 3.260e-01f*_PI*_PI*_PI;
-        const float b = 1.823e-01f*_PI*_PI*_PI*_PI*_PI;
-        float f2 = x*x;
+        const float pi_two = _PI*_PI;
+        const float pi_three = pi_two*_PI;
+        const float pi_five = pi_three*pi_two;
+        const float a = 3.260e-01f*pi_three;
+        const float b = 1.823e-01f*pi_five;
+        const float f2 = x*x;
         return x*(_PI + f2*(a + b*f2));
 #endif
     }
@@ -45,6 +71,7 @@ public:
     }
     void set(float cutoff, float res)
     {
+        // TODO we will probably want to clip cutoff for part of the range
         const float r = 1.f - res;
         g_ = tan(cutoff);
         g1_ = 2.f*r + g_;
@@ -125,7 +152,6 @@ public:
     {
         const float r_SR = 1.f/44100.f;
         inc_[0] = std::min(r_SR/a, 1.f);
-        //DBG(a);
         inc_[1] = std::min(r_SR/d, 1.f);
         levels_[2] = s;
         inc_[3] = std::min(r_SR/r, 1.f);
@@ -162,7 +188,6 @@ ocs2 pwm
 subosc vol?
 noise vol
 osc vibrato (lfoamt?)
-vcf modamt
 vcf keyfollow
 env a, d, s, r
 vca env/gate
@@ -170,17 +195,32 @@ vca env/gate
 
 struct Preset
 {
-    OscType osc1Shape = OscType::Saw, osc2Shape = OscType::Saw;
+    OscType osc1Shape = OscType::Pulse, osc2Shape = OscType::Pulse;
+    // multiplicative transpose factor, typical 0.5 to 2.0
     float osc2Transpose = 1.501f;
+    // linear amplitude factor, 0 to 1
     float osc1Vol = 0.5f, osc2Vol = 0.5f;
-    float osc1Pw = 0.f, osc2Pw = 0.f;
+    // -1 to 1, 0 is square
+    float osc1Pw = 0.5f, osc2Pw = 0.7f;
+    // LFO to osc PWM, 0 to 1
+    float osc1Pwm = 0.3f, osc2Pwm = 0.2f;
     FilterType vcfType;
-    float vcfCutoff = 0.01f;
-    float vcfReso = 0.9f;
+    // 0.5 is nyquist (max)
+    float vcfCutoff = 0.05f;
+    // 1 is self resonance, 0 is no resonance
+    float vcfReso = 0.7f;
+    // portion of envelope to add to vcfCutoff, 0 to 1
     float vcfEnv = 0.1f;
+    // portion of lfo to add to vcfCutoff, 0 to 1
+    float vcfLfo = 0.01f;
+    // seconds, sustain is amplitude factor 0 to 1
     float envA = 0.8f, envD = 0.3f, envS = 0.3f, envR = 1.f;
-    OscType lfoShape;
-    float lfoFreq;
+    OscType lfoShape = OscType::Triangle;
+    float lfoFreq = 1.f;
+    // vibrato frequency in hz
+    float vibFreq = 5.f;
+    // vibrato amount in semitones
+    float vibAmount = 0.5f;
     float gain = 0.4f;
 #if 1
     void dump()
@@ -227,6 +267,7 @@ public:
 class Voice
 {
     Osc osc_[2];
+    Osc lfo_;
     SVF filter_;
     ADSR env_;
     int gateLength_ = -1;
@@ -241,6 +282,8 @@ class Voice
         filter_.reset();
         osc_[0].setPW(p.osc1Pw); osc_[1].setPW(p.osc2Pw);
         osc_[0].setType(p.osc1Shape); osc_[1].setType(p.osc2Shape);
+        lfo_.setType(p.lfoShape);
+        lfo_.setFreq(preset_->lfoFreq*BlockSize);
         env_.set(p.envA, p.envD, p.envS, p.envR);
         filter_.set(p.vcfCutoff, p.vcfReso);
     }
@@ -256,24 +299,30 @@ public:
 
         auto oscs = osc_[0].process()*preset_->osc1Vol + osc_[1].process()*preset_->osc2Vol;
         auto out = env*filter_.process(oscs);
+        // TODO check gatelength once per block somehow?
         if (gateLength_ > 0) --gateLength_;
         if (gateLength_ == 0 && !stopping_) detrig();
         if (env_.done()) note_ = -1;
         return out;
     }
-    void process(float* buf, int num)
+    void process(float* buf, int num, float vib = 0.f)
     {
-        const float filt_freq = preset_->vcfCutoff + env_.value()*preset_->vcfEnv;
-
+        const float lfo = lfo_.process();
+        const float filt_freq = preset_->vcfCutoff + env_.value()*preset_->vcfEnv*0.5f + lfo*preset_->vcfLfo;
+        setNote(static_cast<float>(note_) + vib);
         filter_.set(filt_freq, preset_->vcfReso);
+        osc_[0].setPW(preset_->osc1Pw + preset_->osc1Pwm*lfo);
+        osc_[1].setPW(preset_->osc2Pw + preset_->osc2Pwm*lfo);
         for (int i = 0; i < num; ++i) {
             buf[i] += process();
         }
     }
-    void setFreq(float f)
+    void setNote(float note)
     {
-        osc_[0].setFreq(f);
-        osc_[1].setFreq(f*preset_->osc2Transpose);
+        const float t = 440.f*SynthTables::interpNote(note);
+        //const float t = 440.f*SynthTables::notetab[note];
+        osc_[0].setFreq(t);
+        osc_[1].setFreq(t*preset_->osc2Transpose);
     }
     void trig(int8_t note, Preset* preset, int length = -1)
     {
@@ -298,6 +347,10 @@ public:
     {
         return stopping_;
     }
+    const Preset* getPreset() const
+    {
+        return preset_;
+    }
 };
 
 template <int NumVoices = 16>
@@ -306,13 +359,11 @@ class Synth
     Voice voice[NumVoices];
     Preset* preset_;
     float mixbuf[256];
-
+    Osc viblfo_;
     int sample_pos_ = -1;
     int sample_len_ = 0;
     float sample_gain_ = 1.f;
     const uint8_t* sample_table_;
-
-    float noteToHz_[128];
 
     int findVoice(int8_t note)
     {
@@ -328,16 +379,13 @@ class Synth
         }
         return voice[0];
     };
-    void calcTables()
-    {
-        for (int i = 0; i < 128; ++i)
-            noteToHz_[i] = 440.f*powf(2.f, (i - 69)/12.f);
-    }
 public:
     Synth(Preset* preset) : preset_(preset)
     {
-        calcTables();
+        SynthTables::init();
+        viblfo_.setType(OscType::Triangle);
     }
+    // TODO merge with noteOn
     void setPreset(Preset* p)
     {
         preset_ = p;
@@ -349,12 +397,11 @@ public:
         sample_gain_ = gain/128.f; // bake in 8 bit conversion
         sample_pos_ = 0;
     }
-    void noteOn(int8_t note, float /*velocity*/, float duration = 0.f)
+    void noteOn(int8_t note, float /*velocity*/ , float duration = 0.f)
     {
         Voice& v = alloc(note);
         const int length = duration != 0.f ? static_cast<int>(duration*44100.f) : -1;
         v.trig(note, preset_, length);
-        v.setFreq(noteToHz_[note]);
     }
     void noteOff(int8_t note)
     {
@@ -366,9 +413,12 @@ public:
     {
         std::fill_n(buf, num, 0.f);
 
+        viblfo_.setFreq(preset_->vibFreq*BlockSize);
+        const float vib = viblfo_.process();
         for (auto& v : voice) {
+            auto p = v.getPreset();
             if (v.getNote() == -1) continue;
-            v.process(buf, num);
+            v.process(buf, num, vib*p->vibAmount);
         }
         if (sample_pos_ > -1) {
             for (int i = 0; i < num; ++i) {
