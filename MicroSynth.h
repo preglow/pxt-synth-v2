@@ -10,6 +10,8 @@
 
 #pragma once
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 
 #define _PI 3.14159265359f
 
