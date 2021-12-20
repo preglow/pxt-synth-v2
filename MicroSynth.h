@@ -207,16 +207,18 @@ struct Preset
     // LFO to osc PWM, 0 to 1
     float osc1Pwm = 0.3f, osc2Pwm = 0.2f;
     FilterType vcfType;
-    // 0.5 is nyquist (max)
-    float vcfCutoff = 0.05f;
+    // 0 to 1, covers almost all spectrum
+    float vcfCutoff = 0.4f;
     // 1 is self resonance, 0 is no resonance
     float vcfReso = 0.7f;
     // portion of envelope to add to vcfCutoff, 0 to 1
-    float vcfEnv = 0.1f;
+    float vcfEnv = 0.3f;
     // portion of lfo to add to vcfCutoff, 0 to 1
-    float vcfLfo = 0.01f;
+    float vcfLfo = 0.1f;
+    // portion of note freq to add to cutoff, 0 to 1
+    float vcfKeyFollow = 0.f;
     // seconds, sustain is amplitude factor 0 to 1
-    float envA = 0.8f, envD = 0.3f, envS = 0.3f, envR = 1.f;
+    float envA = 0.8f, envD = 0.5f, envS = 0.5f, envR = 1.f;
     OscType lfoShape = OscType::Triangle;
     float lfoFreq = 1.f;
     // vibrato frequency in hz
@@ -310,7 +312,12 @@ public:
     void process(float* buf, int num, float vib = 0.f)
     {
         const float lfo = lfo_.process();
-        const float filt_freq = preset_->vcfCutoff + env_.value()*preset_->vcfEnv*0.5f + lfo*preset_->vcfLfo;
+        //const float filt_freq = preset_->vcfCutoff + env_.value()*preset_->vcfEnv*0.5f + lfo*preset_->vcfLfo;
+        const float lfo_flt = preset_->vcfLfo*lfo*40.f;
+        const float env_flt = preset_->vcfEnv*env_.value()*80.f;
+        const float key_flt = preset_->vcfKeyFollow*static_cast<float>(note_ - 60); // arbitrary subtract...
+        // this mapping assumes SR = 44100, which it is for now. About 100+ hz to about 20k
+        const float filt_freq = 700.f/44100.f*SynthTables::interpNote(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
         setNote(static_cast<float>(note_) + vib);
         filter_.set(filt_freq, preset_->vcfReso);
         osc_[0].setPW(preset_->osc1Pw + preset_->osc1Pwm*lfo);

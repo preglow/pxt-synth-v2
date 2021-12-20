@@ -47,6 +47,7 @@ enum class SynthParameter {
     //% resonance
     Resonance,
     //% envelope amount
+    FilterKeyFollow,
     FilterEnvAmount,
     FilterLfoAmount,
     //% envelope attack
@@ -159,6 +160,9 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
         break;
     case SynthParameter::Resonance:
         p.vcfReso = val;
+        break;
+    case SynthParameter::FilterKeyFollow:
+        p.vcfKeyFollow = val;
         break;
     case SynthParameter::FilterEnvAmount:
         p.vcfEnv = val;
