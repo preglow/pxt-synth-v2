@@ -170,14 +170,14 @@ public:
     }
 };
 
-enum class OscType
+enum class OscType : uint8_t
 {
     Saw = 0,
     Pulse,
     Triangle
 };
 
-enum class FilterType
+enum class FilterType : uint8_t
 {
     LPF,
     HPF,
@@ -185,13 +185,8 @@ enum class FilterType
 };
 
 #if 0
-osc1 pwm
-ocs2 pwm
 subosc vol?
 noise vol
-osc vibrato (lfoamt?)
-vcf keyfollow
-env a, d, s, r
 vca env/gate
 #endif
 
@@ -206,7 +201,7 @@ struct Preset
     float osc1Pw = 0.5f, osc2Pw = 0.7f;
     // LFO to osc PWM, 0 to 1
     float osc1Pwm = 0.3f, osc2Pwm = 0.2f;
-    FilterType vcfType;
+    FilterType vcfType = FilterType::LPF;
     // 0 to 1, covers almost all spectrum
     float vcfCutoff = 0.4f;
     // 1 is self resonance, 0 is no resonance
@@ -226,12 +221,6 @@ struct Preset
     // vibrato amount in semitones
     float vibAmount = 0.5f;
     float gain = 0.4f;
-#if 1
-    void dump()
-    {
-
-    }
-#endif
 };
 
 class Osc
