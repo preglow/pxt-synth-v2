@@ -1,22 +1,6 @@
 // Auto-generated. Do not edit.
 
 
-    declare const enum OscType
-    {
-    Saw = 0,
-    Pulse = 1,
-    Triangle = 2,
-    }
-
-
-    declare const enum FilterType
-    {
-    LPF = 0,
-    HPF = 1,
-    BPF = 2,
-    }
-
-
     declare const enum SynthPreset {
     //% preset1
     Preset1 = 0,
@@ -52,25 +36,27 @@
     Osc2Pwm = 6,
     Osc1Gain = 7,
     Osc2Gain = 8,
+    OscFm = 9,
     //% cutoff
-    Cutoff = 9,
+    Cutoff = 10,
     //% resonance
-    Resonance = 10,
+    Resonance = 11,
     //% envelope amount
-    FilterEnvAmount = 11,
-    FilterLfoAmount = 12,
+    FilterKeyFollow = 12,
+    FilterEnvAmount = 13,
+    FilterLfoAmount = 14,
     //% envelope attack
-    EnvAttackTime = 13,
+    EnvAttackTime = 15,
     //% envelope decay
-    EnvDecayTime = 14,
+    EnvDecayTime = 16,
     //% envelope sustain
-    EnvSustainLevel = 15,
-    EnvRelease = 16,
-    Gain = 17,
-    LFOFreq = 18,
-    LFOShape = 19,
-    VibratoFreq = 20,
-    VibratoAmount = 21,
+    EnvSustainLevel = 17,
+    EnvRelease = 18,
+    Gain = 19,
+    LFOFreq = 20,
+    LFOShape = 21,
+    VibratoFreq = 22,
+    VibratoAmount = 23,
     }
 
 

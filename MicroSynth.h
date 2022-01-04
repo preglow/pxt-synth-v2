@@ -192,37 +192,37 @@ vca env/gate
 
 struct Preset
 {
-    OscType osc1Shape = OscType::Pulse, osc2Shape = OscType::Pulse;
+    OscType osc1Shape, osc2Shape;
     // multiplicative transpose factor, typical 0.5 to 2.0
-    float osc2Transpose = 1.501f;
+    float osc2Transpose;
     // linear amplitude factor, 0 to 1
-    float osc1Vol = 0.5f, osc2Vol = 0.5f;
+    float osc1Vol, osc2Vol;
     // -1 to 1, 0 is square
-    float osc1Pw = 0.5f, osc2Pw = 0.7f;
+    float osc1Pw, osc2Pw;
     // LFO to osc PWM, 0 to 1
-    float osc1Pwm = 0.3f, osc2Pwm = 0.2f;
+    float osc1Pwm, osc2Pwm;
     // Osc1 -> Osc2 PM amount
-    float fmAmount = 0.f;
-    FilterType vcfType = FilterType::LPF;
+    float fmAmount;
+    FilterType vcfType;
     // 0 to 1, covers almost all spectrum
-    float vcfCutoff = 0.4f;
+    float vcfCutoff;
     // 1 is self resonance, 0 is no resonance
-    float vcfReso = 0.7f;
+    float vcfReso;
     // portion of envelope to add to vcfCutoff, 0 to 1
-    float vcfEnv = 0.3f;
+    float vcfEnv;
     // portion of lfo to add to vcfCutoff, 0 to 1
-    float vcfLfo = 0.1f;
+    float vcfLfo;
     // portion of note freq to add to cutoff, 0 to 1
-    float vcfKeyFollow = 0.f;
+    float vcfKeyFollow;
     // seconds, sustain is amplitude factor 0 to 1
-    float envA = 0.8f, envD = 0.5f, envS = 0.5f, envR = 1.f;
-    OscType lfoShape = OscType::Triangle;
-    float lfoFreq = 1.f;
+    float envA, envD, envS, envR;
+    OscType lfoShape;
+    float lfoFreq;
     // vibrato frequency in hz
-    float vibFreq = 5.f;
+    float vibFreq;
     // vibrato amount in semitones
-    float vibAmount = 0.5f;
-    float gain = 0.4f;
+    float vibAmount;
+    float gain;
 };
 
 class Osc
