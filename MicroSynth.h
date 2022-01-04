@@ -201,6 +201,8 @@ struct Preset
     float osc1Pw = 0.5f, osc2Pw = 0.7f;
     // LFO to osc PWM, 0 to 1
     float osc1Pwm = 0.3f, osc2Pwm = 0.2f;
+    // Osc1 -> Osc2 PM amount
+    float fmAmount = 0.f;
     FilterType vcfType = FilterType::LPF;
     // 0 to 1, covers almost all spectrum
     float vcfCutoff = 0.4f;
@@ -233,6 +235,22 @@ public:
         float out = acc_;
         acc_ += delta_;
         if (acc_ > 1.f) acc_ -= 2.f;
+        switch (wave_) {
+        case OscType::Saw:
+            return out;
+        case OscType::Pulse:
+            return out > pw_ ? 1.f : -1.f;
+        case OscType::Triangle:
+        default:
+            return fabsf(out)*2.f - 1.f;
+        }
+    };
+    float processPM(float pm)
+    {
+        float out = acc_;
+        acc_ += delta_ + pm;
+        if (acc_ > 1.f) acc_ -= 2.f;
+        else if (acc_ < -1.f) acc_ += 2.f;
         switch (wave_) {
         case OscType::Saw:
             return out;
@@ -288,9 +306,10 @@ public:
     float process()
     {
         //std::ostringstream lol;
-        float env = env_.process();
+        const float env = env_.process();
+        const float osc1 = osc_[0].process();
 
-        auto oscs = osc_[0].process()*preset_->osc1Vol + osc_[1].process()*preset_->osc2Vol;
+        auto oscs = osc1*preset_->osc1Vol + osc_[1].processPM(preset_->fmAmount*osc1)*preset_->osc2Vol;
         auto out = env*filter_.process(oscs);
         // TODO check gatelength once per block somehow?
         if (gateLength_ > 0) --gateLength_;
