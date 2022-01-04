@@ -1,0 +1,2 @@
+Block interrupts in strategic places to avoid race conditions. Probably a job for the Microbit wrapper.
+The whole common vibrato LFO for everything model could be improved. One vibrato LFO per preset?
