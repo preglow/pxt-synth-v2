@@ -4,44 +4,6 @@
 
     //% block="Orch blocks"
 declare namespace orchestra {
-
-    /**
-     * Set synth preset parameters.
-     * @param preset synth preset
-     * @param param synth parameter
-     * @param val parameter value
-     */
-    //% help=orch/set-synth-parameter weight=30
-    //% group="Orchestra"
-    //% blockId=orch_set_parameter block block="set preset %preset parameter %param to %val" shim=orchestra::setParameter
-    function setParameter(preset: SynthUserPreset, param: SynthParameter, val: number): void;
-
-    /**
-     * Play sample.
-     * @param sample which sample
-     * @param gain gain
-     */
-    //% help=orch/play-sample weight=30
-    //% group="Orchestra"
-    //% blockId=orch_play_sample block block="play sample %sample with gain %gain" shim=orchestra::playSample
-    function playSample(sample: Sample, gain: number): void;
-
-    /**
-     * Trigger a note.
-     * @param note note number, 0 to 127, MIDI
-     * @param duration duration in ms
-     * @param velocity velocity, 0 to 127, MIDI 
-     * @param preset preset
-     */
-    //% help=orch/note weight=30
-    //% group="Orchestra"
-    //% inlineInputMode=inline
-    //% blockId=orch_note block block="trigger note %note with duration %duration and velocity %velocity using preset %preset"
-    //% note.min=0 note.max=127
-    //% duration.min=1 duration.max=10000
-    //% velocity.min=0 velocity.max=127
-    //% note.defl=69 duration.defl=1000 velocity.defl=127 preset.defl=1 shim=orchestra::note
-    function note(note?: int32, duration?: int32, velocity?: int32, preset?: SynthPreset): void;
 }
 
 // Auto-generated. Do not edit. Really.
