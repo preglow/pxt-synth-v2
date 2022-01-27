@@ -51,6 +51,7 @@ enum class SynthParameter {
     FilterKeyFollow,
     FilterEnvAmount,
     FilterLfoAmount,
+	FilterType,
     //% envelope attack
     EnvAttackTime,
     //% envelope decay
@@ -86,7 +87,7 @@ Preset presets[5] {
     { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145 },
     { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145 }
 };
-Synth<NumVoices> synth(&presets[0]);
+Synth<NumVoices> synth;
 
 class AudioTest : public DataSource
 {
@@ -180,6 +181,9 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
     case SynthParameter::FilterLfoAmount:
         p.vcfLfo = val;
         break;
+	case SynthParameter::FilterType:
+		p.vcfType = static_cast<FilterType>(static_cast<int>(val));
+		break;
     case SynthParameter::EnvAttackTime:
         p.envA = val;
         break;
@@ -262,9 +266,8 @@ void playSample(Sample sample, float gain)
 void note(int note, int duration, int velocity, SynthPreset preset)
 {
     const int preset_index = static_cast<int>(preset);
-    synth.setPreset(&presets[preset_index]);
     if (!audioInited) audioInit();
-    synth.noteOn(note, velocity/127.f, duration/1000.f);
+    synth.noteOn(note, velocity/127.f, duration/1000.f, &presets[preset_index]);
 }
 
 }
