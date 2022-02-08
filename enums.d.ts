@@ -53,11 +53,13 @@
     //% envelope sustain
     EnvSustainLevel = 18,
     EnvRelease = 19,
-    Gain = 20,
-    LFOFreq = 21,
-    LFOShape = 22,
-    VibratoFreq = 23,
-    VibratoAmount = 24,
+    AmpGate = 20,
+    Gain = 21,
+    LFOFreq = 22,
+    LFOShape = 23,
+    VibratoFreq = 24,
+    VibratoAmount = 25,
+    Tune = 26,
     }
 
 
