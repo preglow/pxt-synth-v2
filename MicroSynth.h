@@ -91,6 +91,8 @@ struct Preset
     // vibrato amount in semitones
     float vibAmount;
     float gain;
+    float tune;
+    bool ampGate;
 };
 
 // zavilishin svf
@@ -248,7 +250,7 @@ public:
         case OscType::Saw:
             return out;
         case OscType::Pulse:
-            return out > pw_ ? 1.f : -1.f;
+            return (out > pw_ ? 1.f : -1.f) + pw_;  // remove dc offset
         case OscType::Triangle:
         default:
             return fabsf(out)*2.f - 1.f;
@@ -264,7 +266,7 @@ public:
         case OscType::Saw:
             return out;
         case OscType::Pulse:
-            return out > pw_ ? 1.f : -1.f;
+            return (out > pw_ ? 1.f : -1.f) + pw_;
         case OscType::Triangle:
         default:
             return fabsf(out)*2.f - 1.f;
@@ -284,6 +286,9 @@ public:
     }
 };
 
+// all parameter modulations except the amplitude envelope are computed once per block 
+// to save on processing
+// do NOT call any parameter settings functions before setting a preset
 class Voice
 {
     Osc osc_[2];
@@ -291,10 +296,11 @@ class Voice
     Osc vibLfo_;
     SVF filter_;
     ADSR env_;
-    int gateLength_ = -1;
-    uint8_t envflags = 0;
-    int8_t note_ = -1;
-    bool stopping_ = false;
+    float gain_;
+    float smoothedGate_;
+    int gateLength_ = -1;   // -1 means no preset time duration
+    int8_t note_ = -1;      // -1 means inactive voice
+    bool stopping_ = false; // set to true after we've received a note off
     const Preset* preset_;
     void apply_preset()
     {
@@ -308,56 +314,64 @@ class Voice
         env_.set(p.envA, p.envD, p.envS, p.envR);
         filter_.set(p.vcfCutoff, p.vcfReso);
     }
+    void set_note(float note)
+    {
+        const float t = 440.f*SynthTables::interpNote(note + preset_->tune);
+        osc_[0].setFreq(t);
+        osc_[1].setFreq(t*SynthTables::interpNote(preset_->osc2Transpose + 69.f));
+    }
 public:
     Voice()
     {
         env_.set(0.1f, 0.1f, 0.3f, 0.2f);
         vibLfo_.setType(OscType::Triangle);
     }
+    // per sample process
     float process()
     {
         const float env = env_.process();
         const float osc1 = osc_[0].process();
+        const float gate = stopping_ ? 0.f : 1.f;
 
+        smoothedGate_ += (gate - smoothedGate_)*0.005f;
+        const float amp_env = preset_->ampGate ? smoothedGate_ : env;
         auto oscs = osc1*preset_->osc1Vol + osc_[1].processPM(preset_->fmAmount*osc1)*preset_->osc2Vol;
-        auto out = env*filter_.process(oscs, preset_->vcfType);
-        // TODO check gatelength once per block somehow?
-        if (gateLength_ > 0) --gateLength_;
-        if (gateLength_ == 0 && !stopping_) detrig();
-        if (env_.done()) note_ = -1;
+        auto out = gain_*amp_env*filter_.process(oscs, preset_->vcfType);
         return out;
     }
     void process(float* buf, int num)
     {
+        if (preset_ == nullptr) return;
         const float lfo = lfo_.process();
         vibLfo_.setFreq(preset_->vibFreq*BlockSize);
         const float vib = vibLfo_.process()*preset_->vibAmount;
         const float lfo_flt = preset_->vcfLfo*lfo*40.f;
         const float env_flt = preset_->vcfEnv*env_.value()*80.f;
-        const float key_flt = preset_->vcfKeyFollow*static_cast<float>(note_ - 60); // arbitrary subtract...
+        const float key_flt = preset_->vcfKeyFollow*static_cast<float>(note_ + preset_->tune - 60); // arbitrary subtract...
         // this mapping assumes SR = 44100, which it is for now. About 100+ hz to about 20k
         const float filt_freq = 700.f/44100.f*SynthTables::interpNote(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
-        setNote(static_cast<float>(note_) + vib);
+        set_note(static_cast<float>(note_) + vib);
         filter_.set(filt_freq, preset_->vcfReso);
         osc_[0].setPW(preset_->osc1Pw + preset_->osc1Pwm*lfo);
         osc_[1].setPW(preset_->osc2Pw + preset_->osc2Pwm*lfo);
         for (int i = 0; i < num; ++i) {
-            buf[i] += process()*preset_->gain;
+            buf[i] += process();
         }
+        // check if it's time to move amp envelope to release
+        if (gateLength_ >= 0) gateLength_ -= std::min(gateLength_, BlockSize);
+        if (!stopping_ && gateLength_ == 0) detrig();
+        // check if amp envelope has died out and deactivate voice if so
+        if (env_.done() || (preset_->ampGate && smoothedGate_ < 1e-3)) note_ = -1;
     }
-    void setNote(float note)
-    {
-        const float t = 440.f*SynthTables::interpNote(note);
-        osc_[0].setFreq(t);
-        osc_[1].setFreq(t*SynthTables::interpNote(preset_->osc2Transpose + 69.f));
-    }
-    void trig(int8_t note, const Preset* preset, int length = -1)
+    void trig(int8_t note, float velocity, const Preset* preset, int length = -1)
     {
         preset_ = preset;
         stopping_ = false;
         note_ = note;
         gateLength_ = length;
+        smoothedGate_ = 0.f;
         apply_preset();
+        gain_ = preset_->gain*velocity;
         env_.reset();
         env_.gate();
     }
@@ -417,11 +431,11 @@ public:
         sample_gain_ = gain/128.f; // bake in 8 bit conversion
         sample_pos_ = 0;
     }
-    void noteOn(int8_t note, float /*velocity*/ , float duration, const Preset* preset)
+    void noteOn(int8_t note, float velocity, float duration, const Preset* preset)
     {
         Voice& v = alloc(note);
         const int length = duration != 0.f ? static_cast<int>(duration*44100.f) : -1;
-        v.trig(note, preset, length);
+        v.trig(note, velocity, preset, length);
     }
     void noteOff(int8_t note)
     {

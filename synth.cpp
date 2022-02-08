@@ -59,11 +59,13 @@ enum class SynthParameter {
     //% envelope sustain
     EnvSustainLevel,
     EnvRelease,
+    AmpGate,
     Gain,
     LFOFreq,
     LFOShape,
     VibratoFreq,
-    VibratoAmount
+    VibratoAmount,
+    Tune
 };
 
 enum class Sample {
@@ -81,11 +83,11 @@ namespace orchestra {
 static constexpr int NumVoices = 8;
 
 Preset presets[5] {
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145 },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145 },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145 },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145 },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145 }
+    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
+    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
+    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
+    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
+    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false }
 };
 Synth<NumVoices> synth;
 
@@ -188,6 +190,9 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
     case SynthParameter::EnvRelease:
         p.envR = val;
         break;
+    case SynthParameter::AmpGate:
+        p.ampGate = val > 0.f;
+        break;
     case SynthParameter::Gain:
         p.gain = val;
         break;
@@ -202,6 +207,10 @@ void setParameter(SynthUserPreset preset, SynthParameter param, float val)
         break;
     case SynthParameter::VibratoAmount:
         p.vibAmount = val;
+		break;
+    case SynthParameter::Tune:
+        p.tune = val;
+        break;
     default:
         break;
     }
