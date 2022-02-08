@@ -9,6 +9,16 @@ namespace orchestra {
         return
     }
 
+    //% help=orch/get-synth-parameter weight=30
+    //% group="Orchestra"
+    //% blockId=orch_get_parameter
+    //% block="get value of preset %preset parameter %param"
+    //% shim=orchestra::getParameter
+    export function getParameter(preset: SynthPreset, param: SynthParameter): number
+    {
+        return 0
+    }
+
     //% help=orch/play-sample weight=30
     //% group="Orchestra"
     //% blockId=orch_play_sample

@@ -198,6 +198,69 @@ void setParameter(SynthPreset preset, SynthParameter param, float val)
         break;
     }
 }
+float getParameter(SynthPreset preset, SynthParameter param)
+{
+    const auto& p = presets[static_cast<int>(preset)];
+    switch (param) {
+    case SynthParameter::Osc1Shape:
+        return static_cast<float>(p.osc1Shape);
+    case SynthParameter::Osc2Shape:
+        return static_cast<float>(p.osc2Shape);
+    case SynthParameter::Osc2Transpose:
+        return p.osc2Transpose;
+    case SynthParameter::Osc1Pw:
+        return p.osc1Pw;
+    case SynthParameter::Osc2Pw:
+        return p.osc2Pw;
+    case SynthParameter::Osc1Pwm:
+        return p.osc1Pwm;
+    case SynthParameter::Osc2Pwm:
+        return p.osc2Pwm;
+    case SynthParameter::OscFm:
+        return p.fmAmount;
+    case SynthParameter::Osc1Gain:
+        return p.osc1Vol;
+    case SynthParameter::Osc2Gain:
+        return p.osc2Vol;
+    case SynthParameter::Cutoff:
+        return p.vcfCutoff;
+    case SynthParameter::Resonance:
+        return p.vcfReso;
+    case SynthParameter::FilterKeyFollow:
+        return p.vcfKeyFollow;
+    case SynthParameter::FilterEnvAmount:
+        return p.vcfEnv;
+    case SynthParameter::FilterLfoAmount:
+        return p.vcfLfo;
+    case SynthParameter::FilterType:
+        return static_cast<float>(p.vcfType);
+    case SynthParameter::EnvAttackTime:
+        return p.envA;
+    case SynthParameter::EnvDecayTime:
+        return p.envD;
+    case SynthParameter::EnvSustainLevel:
+        return p.envS;
+    case SynthParameter::EnvRelease:
+        return p.envR;
+    case SynthParameter::AmpGate:
+        return static_cast<float>(p.ampGate);
+    case SynthParameter::Gain:
+        return p.gain;
+    case SynthParameter::LFOFreq:
+        return p.lfoFreq;
+    case SynthParameter::LFOShape:
+        return static_cast<float>(p.lfoShape);
+    case SynthParameter::VibratoFreq:
+        return p.vibFreq;
+    case SynthParameter::VibratoAmount:
+        return p.vibAmount;
+    case SynthParameter::Tune:
+        return p.tune;
+    default:
+        return 0.f;
+    }
+}
+
 AudioTest atest(synth);
 bool audioInited = false;	
 
