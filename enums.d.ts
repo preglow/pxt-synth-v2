@@ -45,18 +45,19 @@
     FilterKeyFollow = 12,
     FilterEnvAmount = 13,
     FilterLfoAmount = 14,
+    FilterType = 15,
     //% envelope attack
-    EnvAttackTime = 15,
+    EnvAttackTime = 16,
     //% envelope decay
-    EnvDecayTime = 16,
+    EnvDecayTime = 17,
     //% envelope sustain
-    EnvSustainLevel = 17,
-    EnvRelease = 18,
-    Gain = 19,
-    LFOFreq = 20,
-    LFOShape = 21,
-    VibratoFreq = 22,
-    VibratoAmount = 23,
+    EnvSustainLevel = 18,
+    EnvRelease = 19,
+    Gain = 20,
+    LFOFreq = 21,
+    LFOShape = 22,
+    VibratoFreq = 23,
+    VibratoAmount = 24,
     }
 
 
