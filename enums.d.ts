@@ -8,18 +8,6 @@
     Preset2 = 1,
     //% preset3
     Preset3 = 2,
-    //% user1
-    User1 = 3,
-    //% user2
-    User2 = 4,
-    }
-
-
-    declare const enum SynthUserPreset {
-    //% user1
-    User1 = 0,
-    //% user2
-    User2 = 1,
     }
 
 

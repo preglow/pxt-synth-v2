@@ -4,7 +4,7 @@ namespace orchestra {
     //% blockId=orch_set_parameter
     //% block="set preset %preset parameter %param to %val"
     //% shim=orchestra::setParameter
-    export function setParameter(preset: SynthUserPreset, param: SynthParameter, val: number): void
+    export function setParameter(preset: SynthPreset, param: SynthParameter, val: number): void
     {
         return
     }
@@ -19,7 +19,7 @@ namespace orchestra {
         return
     }
 
-//% help=orch/note weight=30
+    //% help=orch/note weight=30
     //% group="Orchestra"
     //% blockId=orch_note
     //% block="trigger note %note with duration %duration and velocity %velocity using preset %preset"
@@ -32,4 +32,17 @@ namespace orchestra {
     {
         return
     }
+
+    //% help=orch/note-off weight=30
+    //% group="Orchestra"
+    //% blockId=orch_note_off
+    //% block="stop note %note"
+    //% note.min=0 note.max=127
+    //% note.defl=69
+    //% shim=orchestra::noteOff
+    export function noteOff(note?: number): void
+    {
+        return
+    }
+
 }

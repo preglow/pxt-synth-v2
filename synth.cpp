@@ -16,17 +16,6 @@ enum class SynthPreset {
     Preset2,
     //% preset3
     Preset3,
-    //% user1
-    User1,
-    //% user2
-    User2
-};
-
-enum class SynthUserPreset {
-    //% user1
-    User1 = 0,
-    //% user2
-    User2
 };
 
 enum class SynthParameter {
@@ -82,13 +71,7 @@ namespace orchestra {
 
 static constexpr int NumVoices = 8;
 
-Preset presets[5] {
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false },
-    { OscType::Triangle, OscType::Triangle, 0.504590, 0.493457, 0.500000, 0.500000, 0.700000, 0.300000, 0.300000, 0.125977, FilterType::LPF, 0.408789, 0.888332, 0.300000, 0.000000, 1.000000, 0.000000, 0.214355, 0.324000, 2.633301, OscType::Triangle, 0.500000, 5.000000, 0.000000, 0.298145, 0.f, false }
-};
+Preset presets[3];
 Synth<NumVoices> synth;
 
 class AudioTest : public DataSource
@@ -126,9 +109,9 @@ public:
 };
 
 //%
-void setParameter(SynthUserPreset preset, SynthParameter param, float val)
+void setParameter(SynthPreset preset, SynthParameter param, float val)
 {
-    auto& p = presets[3 + static_cast<int>(preset)];
+    auto& p = presets[static_cast<int>(preset)];
     switch (param) {
     case SynthParameter::Osc1Shape:
         p.osc1Shape = static_cast<OscType>(static_cast<int>(val));
@@ -227,6 +210,11 @@ static void audioInit()
     uBit.audio.mixer.addChannel(atest);
     atest.go();
     audioInited = true;
+    for (int i = 0; i < 3; ++i) {
+        memset(&presets[i], 0, sizeof(Preset));
+        presets[i].osc1Vol = presets[i].vcfCutoff = presets[i].gain = 0.5f;
+        presets[i].ampGate = true;
+    }
 }
 
 //%
@@ -250,4 +238,9 @@ void note(int note, int duration, int velocity, SynthPreset preset)
     synth.noteOn(note, velocity/127.f, duration/1000.f, &presets[preset_index]);
 }
 
+//%
+void noteOff(int note)
+{
+    synth.noteOff(note);
+}
 }
