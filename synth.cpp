@@ -198,6 +198,8 @@ void setParameter(SynthPreset preset, SynthParameter param, float val)
         break;
     }
 }
+
+//%
 float getParameter(SynthPreset preset, SynthParameter param)
 {
     const auto& p = presets[static_cast<int>(preset)];
