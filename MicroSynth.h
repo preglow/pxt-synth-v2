@@ -385,17 +385,13 @@ public:
     {
         return stopping_;
     }
-    const Preset* getPreset() const
-    {
-        return preset_;
-    }
 };
 
-template <int NumVoices = 16>
 class Synth
 {
-    Voice voice[NumVoices];
-    float mixbuf[256];
+    Voice* voice_;
+    float mixbuf_[BlockSize];
+    int numVoices_;
     int sample_pos_ = -1;
     int sample_len_ = 0;
     float sample_gain_ = 1.f;
@@ -403,23 +399,28 @@ class Synth
 
     int findVoice(int8_t note)
     {
-        for (int i = 0; i < NumVoices; ++i) {
-            if (voice[i].getNote() == note && !voice[i].isStopping()) return i;
+        for (int i = 0; i < numVoices_; ++i) {
+            if (voice_[i].getNote() == note && !voice_[i].isStopping()) return i;
         }
         return -1;
     }
     Voice& alloc(int /*note*/)
     {
         // TODO make betterer. maybe steal oldest?
-        for (int i = 0; i < NumVoices; ++i) {
-            if (voice[i].getNote() == -1) return voice[i];
+        for (int i = 0; i < numVoices_; ++i) {
+            if (voice_[i].getNote() == -1) return voice_[i];
         }
-        return voice[0];
+        return voice_[0];
     };
 public:
-    Synth()
+    Synth(int num_voices) : numVoices_(num_voices)
     {
+        voice_ = new Voice[numVoices_];
         SynthTables::init();
+    }
+    ~Synth()
+    {
+        delete[] voice_;
     }
     void playSample(const uint8_t* sample, int len, float gain = 1.f)
     {
@@ -437,15 +438,15 @@ public:
     void noteOff(int8_t note)
     {
         int ind = findVoice(note);
-        if (ind != -1) voice[ind].detrig();
+        if (ind != -1) voice_[ind].detrig();
     }
 
     void process_noclip(float* buf, int num)
     {
         std::fill_n(buf, num, 0.f);
 
-        for (auto& v : voice) {
-            auto p = v.getPreset();
+        for (int i = 0; i < numVoices_; ++i) {
+            Voice& v = voice_[i];
             if (v.getNote() == -1) continue;
             v.process(buf, num);
         }
@@ -470,9 +471,9 @@ public:
 
     void process(uint16_t* buf, int num)
     {
-        process_noclip(mixbuf, num);
+        process_noclip(mixbuf_, num);
         for (int i = 0; i < num; ++i) {
-            buf[i] = std::max(std::min(static_cast<int>(mixbuf[i]*511.f + 512.f), 1023), 0);
+            buf[i] = static_cast<uint16_t>(std::max(std::min(static_cast<int>(mixbuf_[i]*511.f + 512.f), 1023), 0));
         }
     }
 };

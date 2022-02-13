@@ -97,7 +97,7 @@ namespace orchestra {
 static constexpr int NumVoices = 8;
 
 Preset presets[3];
-Synth<NumVoices> synth;
+Synth synth(NumVoices);
 
 class AudioTest : public DataSource
 {
