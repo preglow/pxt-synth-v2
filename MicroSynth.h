@@ -110,25 +110,15 @@ struct Preset
     bool ampGate;
 };
 
-// zavilishin svf
+// Vadim Zavilishin's TPT state variable filter from "The Art of VA Filter Design"
 class SVF
 {
     float g_, g1_, d_;
     float s1_, s2_;
     float tan(float x)
     {
-#if 0
-        // Clip coefficient to about 100.
-        x = x < 0.497f ? x : 0.497f;
-        return tanf(_PI*x);
-#elif 0
-        // below 8 hz version
-        const float a = 3.736e-01*_PI*_PI*_PI;
-        return x*(_PI + a*x*x);
-#else
         // stolen from mutable instruments
-        // TODO for 48 kHz
-        // TODO check out license, preferably replace with 44.1khz version
+        // TODO for 48 kHz, try to make a 44.1 khz version
         const float pi_two = _PI*_PI;
         const float pi_three = pi_two*_PI;
         const float pi_five = pi_three*pi_two;
@@ -136,7 +126,6 @@ class SVF
         const float b = 1.823e-01f*pi_five;
         const float f2 = x*x;
         return x*(_PI + f2*(a + b*f2));
-#endif
     }
 public:
     SVF()
@@ -153,7 +142,6 @@ public:
     }
     float process(float x, FilterType f = FilterType::LPF)
     {
-#if 1
         const float hp = (x - g1_*s1_ - s2_)*d_;
         const float v1 = g_*hp;
         const float bp = v1 + s1_;
@@ -170,15 +158,6 @@ public:
         case FilterType::HPF:
             return hp;
         }
-#else // no hp
-        const float bp = (g_*(x - s2_) + s1_)*d_;
-        const float v1 = bp - s1_;
-        s1_ = bp + v1;
-        const float v2 = g_*bp;
-        const float lp = v2 + s2_;
-        s2_ = lp + v2;
-        return lp;
-#endif
     }
     void reset()
     {
