@@ -92,6 +92,7 @@ struct Preset
     float vibAmount;
     float gain;
     float tune;
+    float noise;
     bool ampGate;
 };
 
@@ -302,6 +303,7 @@ class Voice
     int8_t note_ = -1;      // -1 means inactive voice
     bool stopping_ = false; // set to true after we've received a note off
     const Preset* preset_;
+    int32_t noise_;
     void apply_preset()
     {
         const Preset& p = *preset_;
@@ -336,7 +338,9 @@ public:
         smoothedGate_ += (gate - smoothedGate_)*0.005f;
         const float amp_env = preset_->ampGate ? smoothedGate_ : env;
         auto oscs = osc1*preset_->osc1Vol + osc_[1].processPM(preset_->fmAmount*osc1)*preset_->osc2Vol;
-        auto out = gain_*amp_env*filter_.process(oscs, preset_->vcfType);
+        noise_ = 1664525*noise_ + 1013904223;
+        const float noise = preset_->noise*noise_*1.f/std::numeric_limits<int32_t>::max();
+        auto out = gain_*amp_env*filter_.process(oscs + noise, preset_->vcfType);
         return out;
     }
     void process(float* buf, int num)
