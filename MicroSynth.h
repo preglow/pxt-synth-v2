@@ -30,6 +30,8 @@ SOFTWARE.
 #define _PI 3.14159265359f
 
 static constexpr int BlockSize = 256;
+static constexpr int SampleRate = 44100;
+static constexpr float SampleRate_f = 44100.f;
 
 struct SynthTables
 {
@@ -65,12 +67,6 @@ enum class FilterType : uint8_t
     HPF,
     BPF
 };
-
-#if 0
-subosc vol?
-noise vol
-vca env/gate
-#endif
 
 struct Preset
 {
@@ -211,7 +207,7 @@ public:
     }
     void set(float a, float d, float s, float r)
     {
-        const float r_SR = 1.f/44100.f;
+        const float r_SR = 1.f/SampleRate_f;
         inc_[0] = std::min(r_SR/a, 1.f);
         inc_[1] = std::min(r_SR/d, 1.f);
         levels_[2] = s;
@@ -268,7 +264,7 @@ public:
     };
     void setFreq(float f)
     {
-        delta_ = 2.f*f/44100.f;
+        delta_ = 2.f*f/SampleRate_f;
     }
     void setType(OscType t)
     {
@@ -300,7 +296,6 @@ class Voice
     void apply_preset()
     {
         const Preset& p = *preset_;
-        const float r_SR = 1.f/44100.f;
         filter_.reset();
         osc_[0].setPW(p.osc1Pw); osc_[1].setPW(p.osc2Pw);
         osc_[0].setType(p.osc1Shape); osc_[1].setType(p.osc2Shape);
@@ -346,7 +341,7 @@ public:
         const float env_flt = preset_->vcfEnv*env_.value()*80.f;
         const float key_flt = preset_->vcfKeyFollow*static_cast<float>(note_ + preset_->tune - 60); // arbitrary subtract...
         // this mapping assumes SR = 44100, which it is for now. About 100+ hz to about 20k
-        const float filt_freq = 700.f/44100.f*SynthTables::interpNote(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
+        const float filt_freq = 700.f/SampleRate_f*SynthTables::interpNote(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
         set_note(static_cast<float>(note_) + vib);
         filter_.set(filt_freq, preset_->vcfReso);
         osc_[0].setPW(preset_->osc1Pw + preset_->osc1Pwm*lfo);
@@ -432,7 +427,7 @@ public:
     void noteOn(int8_t note, float velocity, float duration, const Preset* preset)
     {
         Voice& v = alloc(note);
-        const int length = duration != 0.f ? static_cast<int>(duration*44100.f) : -1;
+        const int length = duration != 0.f ? static_cast<int>(duration*SampleRate_f) : -1;
         v.trig(note, velocity, preset, length);
     }
     void noteOff(int8_t note)
