@@ -54,7 +54,8 @@ enum class SynthParameter {
     LFOShape,
     VibratoFreq,
     VibratoAmount,
-    Tune
+    Tune,
+    Noise
 };
 
 enum class Sample {
@@ -108,10 +109,31 @@ public:
 	}
 };
 
+AudioTest atest(synth);
+bool audioInited = false;
+
+static void audioInit()
+{
+    // manage speaker from PXT
+    //uBit.audio.setSpeakerEnabled(false);
+    uBit.audio.setVolume(255);
+    uBit.audio.enable();
+    uBit.audio.mixer.addChannel(atest);
+    atest.go();
+    audioInited = true;
+    for (int i = 0; i < 3; ++i) {
+        memset(&presets[i], 0, sizeof(Preset));
+        presets[i].osc1Vol = presets[i].vcfCutoff = presets[i].gain = 0.5f;
+        presets[i].ampGate = true;
+    }
+}
+
 //%
 void setParameter(SynthPreset preset, SynthParameter param, float val)
 {
     auto& p = presets[static_cast<int>(preset)];
+
+    if (!audioInited) audioInit();
     switch (param) {
     case SynthParameter::Osc1Shape:
         p.osc1Shape = static_cast<OscType>(static_cast<int>(val));
@@ -194,6 +216,9 @@ void setParameter(SynthPreset preset, SynthParameter param, float val)
     case SynthParameter::Tune:
         p.tune = val;
         break;
+    case SynthParameter::Noise:
+        p.noise = val;
+        break;
     default:
         break;
     }
@@ -203,6 +228,8 @@ void setParameter(SynthPreset preset, SynthParameter param, float val)
 float getParameter(SynthPreset preset, SynthParameter param)
 {
     const auto& p = presets[static_cast<int>(preset)];
+
+    if (!audioInited) audioInit();
     switch (param) {
     case SynthParameter::Osc1Shape:
         return static_cast<float>(p.osc1Shape);
@@ -258,27 +285,10 @@ float getParameter(SynthPreset preset, SynthParameter param)
         return p.vibAmount;
     case SynthParameter::Tune:
         return p.tune;
+    case SynthParameter::Noise:
+        return p.noise;
     default:
         return 0.f;
-    }
-}
-
-AudioTest atest(synth);
-bool audioInited = false;	
-
-static void audioInit()
-{
-    // manage speaker from PXT
-    //uBit.audio.setSpeakerEnabled(false);
-    uBit.audio.setVolume(255);
-    uBit.audio.enable();
-    uBit.audio.mixer.addChannel(atest);
-    atest.go();
-    audioInited = true;
-    for (int i = 0; i < 3; ++i) {
-        memset(&presets[i], 0, sizeof(Preset));
-        presets[i].osc1Vol = presets[i].vcfCutoff = presets[i].gain = 0.5f;
-        presets[i].ampGate = true;
     }
 }
 

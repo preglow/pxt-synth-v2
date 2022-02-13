@@ -48,6 +48,7 @@
     VibratoFreq = 24,
     VibratoAmount = 25,
     Tune = 26,
+    Noise = 27,
     }
 
 
