@@ -103,9 +103,9 @@ class AudioTest : public DataSource
 {
     DataSink* downStream_;
     bool init_ = false;
-    Synth<NumVoices>& synth;
+    Synth& synth;
 public:
-	AudioTest(Synth<NumVoices>& s) : synth(s)
+	AudioTest(Synth& s) : synth(s)
 	{
 	}
     void go()
