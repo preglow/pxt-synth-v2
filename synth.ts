@@ -23,6 +23,43 @@ SOFTWARE.
 */
 
 namespace orchestra {
+    // intbits must include a bit for sign
+    function quantParam(param: number, bits: number, intbits: number): number {
+        // how many bits to code fractional part with 
+        const fracbits = bits - intbits;
+        let q: number;
+        if (intbits == 0) {
+            // multiplier required to convert 0..1 float to integer
+            const mult = (1 << fracbits) - 1;
+            // quantize
+            q = Math.round(param*mult);
+        } else {
+            // if we need to code some integer bits, we'll use a more general
+            // and bit more wasteful fixed point encoding
+            const mult = 1 << fracbits;
+            // offset to make param unsigned
+            const int_offset = (1 << intbits) / 2;
+            // add offset and quantize
+            q = Math.round((param + int_offset) * mult);
+        }
+        return q;
+    }
+
+    // this basically just undoes the operations in quantParam
+    function reconstructParam(qparam: number, bits: number, intbits: number): number {
+        const fracbits = bits - intbits;
+        let n: number;
+        if (intbits == 0) {
+            const mult = (1 << fracbits) - 1;
+            n = qparam/mult;
+        } else {
+            const mult = 1 << fracbits;
+            const int_offset = (1 << intbits)/2;
+            n = qparam/mult - int_offset;
+        }
+        return n;
+    }
+
     //% help=orch/set-synth-parameter weight=30
     //% group="Orchestra"
     //% blockId=orch_set_parameter
