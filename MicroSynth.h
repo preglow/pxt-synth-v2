@@ -111,54 +111,12 @@ class SVF
 {
     float g_, g1_, d_;
     float s1_, s2_;
-    float tan(float x)
-    {
-        // stolen from mutable instruments
-        // TODO for 48 kHz, try to make a 44.1 khz version
-        const float pi_two = _PI*_PI;
-        const float pi_three = pi_two*_PI;
-        const float pi_five = pi_three*pi_two;
-        const float a = 3.260e-01f*pi_three;
-        const float b = 1.823e-01f*pi_five;
-        const float f2 = x*x;
-        return x*(_PI + f2*(a + b*f2));
-    }
+    float tan(float x);
 public:
-    SVF()
-    {
-        reset();
-    }
-    void set(float cutoff, float res)
-    {
-        // TODO we will probably want to clip cutoff for part of the range
-        const float r = 1.f - res;
-        g_ = tan(cutoff);
-        g1_ = 2.f*r + g_;
-        d_ = 1.f/(1.f + 2.f*r*g_ + g_*g_);
-    }
-    float process(float x, FilterType f = FilterType::LPF)
-    {
-        const float hp = (x - g1_*s1_ - s2_)*d_;
-        const float v1 = g_*hp;
-        const float bp = v1 + s1_;
-        s1_ = bp + v1;
-        const float v2 = g_*bp;
-        const float lp = v2 + s2_;
-        s2_ = lp + v2;
-        switch (f) {
-        case FilterType::LPF:
-        default:
-            return lp;
-        case FilterType::BPF:
-            return bp;
-        case FilterType::HPF:
-            return hp;
-        }
-    }
-    void reset()
-    {
-        s1_ = s2_ = 0.f;
-    }
+    SVF();
+    void set(float cutoff, float res);
+    float process(float x, FilterType f = FilterType::LPF);
+    void reset();
 };
 
 class ADSR
@@ -174,55 +132,13 @@ class ADSR
     float cur_ = 0.f;
     State state_;
 public:
-    ADSR()
-    {
-        reset();
-    }
-    float process()
-    {
-        if (state_ == State::Done) return 0.f;
-        if (phase_ >= 1.f) {
-            phase_ = 0.f;
-            // yeah, maybe enum class isn't the right choice
-            int next_state = static_cast<int>(state_) + 1;
-            state_ = static_cast<State>(next_state);
-            start_val_ = levels_[next_state];
-            phase_inc_ = inc_[static_cast<int>(state_)];
-        }
-        phase_ += phase_inc_;
-
-        cur_ = start_val_ + (levels_[static_cast<int>(state_) + 1] - start_val_)*phase_;
-        return cur_;
-    }
-    void gate(bool g = true)
-    {
-        start_val_ = cur_;
-        phase_ = 0.f;
-        state_ = g ? State::A : State::R;
-        phase_inc_ = inc_[static_cast<int>(state_)];
-    }
-    bool done() const
-    {
-        return state_ == State::Done;
-    }
-    void set(float a, float d, float s, float r)
-    {
-        const float r_SR = 1.f/SampleRate_f;
-        inc_[0] = std::min(r_SR/a, 1.f);
-        inc_[1] = std::min(r_SR/d, 1.f);
-        levels_[2] = s;
-        inc_[3] = std::min(r_SR/r, 1.f);
-    }
-    void reset()
-    {
-        phase_ = phase_inc_ = 0.f;
-        cur_ = 0.f;
-        state_ = State::Done;
-    }
-    float value() const
-    {
-        return cur_;
-    }
+    ADSR();
+    float process();
+    void gate(bool g = true);
+    bool done() const;
+    void set(float a, float d, float s, float r);
+    void reset();
+    float value() const;
 };
 
 // Naive oscillators with plenty of aliasing
@@ -231,49 +147,11 @@ class Osc
     float acc_ = 0.f, delta_ = 0.f, pw_ = 0.f;
     OscType wave_ = OscType::Saw;
 public:
-    float process()
-    {
-        float out = acc_;
-        acc_ += delta_;
-        if (acc_ > 1.f) acc_ -= 2.f;
-        switch (wave_) {
-        case OscType::Saw:
-            return out;
-        case OscType::Pulse:
-            return (out > pw_ ? 1.f : -1.f) + pw_;  // remove dc offset
-        case OscType::Triangle:
-        default:
-            return fabsf(out)*2.f - 1.f;
-        }
-    };
-    float processPM(float pm)
-    {
-        float out = acc_;
-        acc_ += delta_ + pm;
-        if (acc_ > 1.f) acc_ -= 2.f;
-        else if (acc_ < -1.f) acc_ += 2.f;
-        switch (wave_) {
-        case OscType::Saw:
-            return out;
-        case OscType::Pulse:
-            return (out > pw_ ? 1.f : -1.f) + pw_;
-        case OscType::Triangle:
-        default:
-            return fabsf(out)*2.f - 1.f;
-        }
-    };
-    void setFreq(float f)
-    {
-        delta_ = 2.f*f/SampleRate_f;
-    }
-    void setType(OscType t)
-    {
-        wave_ = t;
-    }
-    void setPW(float pw)
-    {
-        pw_ = pw;
-    }
+    float process();
+    float processPM(float pm);
+    void setFreq(float f);
+    void setType(OscType t);
+    void setPW(float pw);
 };
 
 // all parameter modulations except the amplitude envelope are computed once per block 
@@ -293,93 +171,17 @@ class Voice
     bool stopping_ = false; // set to true after we've received a note off
     const Preset* preset_;
     int32_t noise_;
-    void apply_preset()
-    {
-        const Preset& p = *preset_;
-        filter_.reset();
-        osc_[0].setPW(p.osc1Pw); osc_[1].setPW(p.osc2Pw);
-        osc_[0].setType(p.osc1Shape); osc_[1].setType(p.osc2Shape);
-        lfo_.setType(p.lfoShape);
-        lfo_.setFreq(preset_->lfoFreq*BlockSize);
-        env_.set(p.envA, p.envD, p.envS, p.envR);
-        filter_.set(p.vcfCutoff, p.vcfReso);
-    }
-    void set_note(float note)
-    {
-        const float t = 440.f*SynthTables::interpNote(note + preset_->tune);
-        osc_[0].setFreq(t);
-        osc_[1].setFreq(t*SynthTables::interpNote(preset_->osc2Transpose + 69.f));
-    }
+    void apply_preset();
+    void set_note(float note);
 public:
-    Voice()
-    {
-        env_.set(0.1f, 0.1f, 0.3f, 0.2f);
-        vibLfo_.setType(OscType::Triangle);
-    }
+    Voice();
     // per sample process
-    float process()
-    {
-        const float env = env_.process();
-        const float osc1 = osc_[0].process();
-        const float gate = stopping_ ? 0.f : 1.f;
-
-        smoothedGate_ += (gate - smoothedGate_)*0.005f;
-        const float amp_env = preset_->ampGate ? smoothedGate_ : env;
-        auto oscs = osc1*preset_->osc1Vol + osc_[1].processPM(preset_->fmAmount*osc1)*preset_->osc2Vol;
-        noise_ = 1664525*noise_ + 1013904223;
-        const float noise = preset_->noise*noise_*1.f/std::numeric_limits<int32_t>::max();
-        auto out = gain_*amp_env*filter_.process(oscs + noise, preset_->vcfType);
-        return out;
-    }
-    void process(float* buf, int num)
-    {
-        if (preset_ == nullptr) return;
-        const float lfo = lfo_.process();
-        vibLfo_.setFreq(preset_->vibFreq*BlockSize);
-        const float vib = vibLfo_.process()*preset_->vibAmount;
-        const float lfo_flt = preset_->vcfLfo*lfo*40.f;
-        const float env_flt = preset_->vcfEnv*env_.value()*80.f;
-        const float key_flt = preset_->vcfKeyFollow*static_cast<float>(note_ + preset_->tune - 60); // arbitrary subtract...
-        // this mapping assumes SR = 44100, which it is for now. About 100+ hz to about 20k
-        const float filt_freq = 700.f/SampleRate_f*SynthTables::interpNote(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
-        set_note(static_cast<float>(note_) + vib);
-        filter_.set(filt_freq, preset_->vcfReso);
-        osc_[0].setPW(preset_->osc1Pw + preset_->osc1Pwm*lfo);
-        osc_[1].setPW(preset_->osc2Pw + preset_->osc2Pwm*lfo);
-        for (int i = 0; i < num; ++i) {
-            buf[i] += process();
-        }
-        // check if it's time to move amp envelope to release
-        if (gateLength_ >= 0) gateLength_ -= std::min(gateLength_, BlockSize);
-        if (!stopping_ && gateLength_ == 0) detrig();
-        // check if amp envelope has died out and deactivate voice if so
-        if (env_.done() || (preset_->ampGate && smoothedGate_ < 1e-3)) note_ = -1;
-    }
-    void trig(int8_t note, float velocity, const Preset* preset, int length = -1)
-    {
-        preset_ = preset;
-        stopping_ = false;
-        note_ = note;
-        gateLength_ = length;
-        smoothedGate_ = 0.f;
-        apply_preset();
-        gain_ = preset_->gain*velocity;
-        env_.reset();
-        env_.gate();
-    }
-    void detrig()
-    {
-        env_.gate(false);
-        stopping_ = true;
-    }
-    int8_t getNote() const
-    {
-        return note_;
-    }
-    bool isStopping() const
-    {
-        return stopping_;
-    }
+    float process();
+    void process(float* buf, int num);
+    void trig(int8_t note, float velocity, const Preset* preset, int length = -1);
+    void detrig();
+    int8_t getNote() const;
+    bool isStopping() const;
 };
 
 class Synth
@@ -392,83 +194,15 @@ class Synth
     float sample_gain_ = 1.f;
     const uint8_t* sample_table_;
 
-    int findVoice(int8_t note)
-    {
-        for (int i = 0; i < numVoices_; ++i) {
-            if (voice_[i].getNote() == note && !voice_[i].isStopping()) return i;
-        }
-        return -1;
-    }
-    Voice& alloc(int /*note*/)
-    {
-        // TODO make betterer. maybe steal oldest?
-        for (int i = 0; i < numVoices_; ++i) {
-            if (voice_[i].getNote() == -1) return voice_[i];
-        }
-        return voice_[0];
-    };
+    int findVoice(int8_t note);
+    Voice& alloc(int note);
+    void process_noclip(float* buf, int num);
 public:
-    Synth(int num_voices) : numVoices_(num_voices)
-    {
-        voice_ = new Voice[numVoices_];
-        SynthTables::init();
-    }
-    ~Synth()
-    {
-        delete[] voice_;
-    }
-    void playSample(const uint8_t* sample, int len, float gain = 1.f)
-    {
-        sample_table_ = sample;
-        sample_len_ = len;
-        sample_gain_ = gain/128.f; // bake in 8 bit conversion
-        sample_pos_ = 0;
-    }
-    void noteOn(int8_t note, float velocity, float duration, const Preset* preset)
-    {
-        Voice& v = alloc(note);
-        const int length = duration != 0.f ? static_cast<int>(duration*SampleRate_f) : -1;
-        v.trig(note, velocity, preset, length);
-    }
-    void noteOff(int8_t note)
-    {
-        int ind = findVoice(note);
-        if (ind != -1) voice_[ind].detrig();
-    }
-
-    void process_noclip(float* buf, int num)
-    {
-        std::fill_n(buf, num, 0.f);
-
-        for (int i = 0; i < numVoices_; ++i) {
-            Voice& v = voice_[i];
-            if (v.getNote() == -1) continue;
-            v.process(buf, num);
-        }
-        if (sample_pos_ > -1) {
-            for (int i = 0; i < num; ++i) {
-                buf[i] += static_cast<float>(sample_table_[sample_pos_++] - 128.f)*sample_gain_;
-                if (sample_pos_ >= sample_len_) {
-                    sample_pos_ = -1;
-                    break;
-                }
-            }
-        }
-    }
-
-    void process(float* buf, int num)
-    {
-        process_noclip(buf, num);
-        for (int i = 0; i < num; ++i) {
-            buf[i] = std::max(std::min(buf[i], 1.f), -1.f);
-        }
-    }
-
-    void process(uint16_t* buf, int num)
-    {
-        process_noclip(mixbuf_, num);
-        for (int i = 0; i < num; ++i) {
-            buf[i] = static_cast<uint16_t>(std::max(std::min(static_cast<int>(mixbuf_[i]*511.f + 512.f), 1023), 0));
-        }
-    }
+    Synth(int num_voices);
+    ~Synth();
+    void playSample(const uint8_t* sample, int len, float gain = 1.f);
+    void noteOn(int8_t note, float velocity, float duration, const Preset* preset);
+    void noteOff(int8_t note);
+    void process(float* buf, int num);
+    void process(uint16_t* buf, int num);
 };
