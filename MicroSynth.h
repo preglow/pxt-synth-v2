@@ -33,25 +33,13 @@ static constexpr int BlockSize = 256;
 static constexpr int SampleRate = 44100;
 static constexpr float SampleRate_f = 44100.f;
 
-struct SynthTables
+class SynthTables
 {
     static float notetab[129]; // including guard point
     static bool inited;
-    static void init()
-    {
-        // singletons are bad, but assume no race conditions, true for microbit use
-        if (inited) return;
-        for (int i = 0; i < 128; ++i)
-            notetab[i] = powf(2.f, (i - 69)/12.f);
-        notetab[128] = notetab[127];
-        inited = true;
-    }
-    static float interpNote(float ind)
-    {
-        const int i = std::min(std::max(static_cast<int>(ind), 0), 127);
-        const float frac = ind - i;
-        return (1.f - frac)*notetab[i] + frac*notetab[i + 1];
-    }
+public:
+    static void init();
+    static float interpNote(float ind);
 };
 
 enum class OscType : uint8_t
@@ -173,10 +161,10 @@ class Voice
     int32_t noise_;
     void apply_preset();
     void set_note(float note);
-public:
-    Voice();
     // per sample process
     float process();
+public:
+    Voice();
     void process(float* buf, int num);
     void trig(int8_t note, float velocity, const Preset* preset, int length = -1);
     void detrig();

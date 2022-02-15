@@ -27,7 +27,24 @@ SOFTWARE.
 bool SynthTables::inited = false;
 float SynthTables::notetab[129];
 
-float SVF::tan(float x)
+void SynthTables::init()
+{
+    // singletons are bad, but assume no race conditions, true for microbit use
+    if (inited) return;
+    for (int i = 0; i < 128; ++i)
+        notetab[i] = powf(2.f, (i - 69)/12.f);
+    notetab[128] = notetab[127];
+    inited = true;
+}
+
+inline float SynthTables::interpNote(float ind)
+{
+    const int i = std::min(std::max(static_cast<int>(ind), 0), 127);
+    const float frac = ind - i;
+    return (1.f - frac)*notetab[i] + frac*notetab[i + 1];
+}
+
+inline float SVF::tan(float x)
 {
     // stolen from mutable instruments
     // TODO for 48 kHz, try to make a 44.1 khz version
@@ -45,7 +62,7 @@ SVF::SVF()
     reset();
 }
 
-void SVF::set(float cutoff, float res)
+inline void SVF::set(float cutoff, float res)
 {
     // TODO we will probably want to clip cutoff for part of the range
     const float r = 1.f - res;
@@ -54,7 +71,7 @@ void SVF::set(float cutoff, float res)
     d_ = 1.f/(1.f + 2.f*r*g_ + g_*g_);
 }
 
-float SVF::process(float x, FilterType f)
+inline float SVF::process(float x, FilterType f)
 {
     const float hp = (x - g1_*s1_ - s2_)*d_;
     const float v1 = g_*hp;
@@ -84,7 +101,7 @@ ADSR::ADSR()
     reset();
 }
 
-float ADSR::process()
+inline float ADSR::process()
 {
     if (state_ == State::Done) return 0.f;
     if (phase_ >= 1.f) {
@@ -101,7 +118,7 @@ float ADSR::process()
     return cur_;
 }
 
-void ADSR::gate(bool g)
+inline void ADSR::gate(bool g)
 {
     start_val_ = cur_;
     phase_ = 0.f;
@@ -135,7 +152,7 @@ float ADSR::value() const
     return cur_;
 }
 
-float Osc::process()
+inline float Osc::process()
 {
     float out = acc_;
     acc_ += delta_;
@@ -151,7 +168,7 @@ float Osc::process()
     }
 }
 
-float Osc::processPM(float pm)
+inline float Osc::processPM(float pm)
 {
     float out = acc_;
     acc_ += delta_ + pm;
@@ -168,7 +185,7 @@ float Osc::processPM(float pm)
     }
 }
 
-void Osc::setFreq(float f)
+inline void Osc::setFreq(float f)
 {
     delta_ = 2.f*f/SampleRate_f;
 }
@@ -178,7 +195,7 @@ void Osc::setType(OscType t)
     wave_ = t;
 }
 
-void Osc::setPW(float pw)
+inline void Osc::setPW(float pw)
 {
     pw_ = pw;
 }
@@ -208,7 +225,7 @@ Voice::Voice()
     vibLfo_.setType(OscType::Triangle);
 }
 
-float Voice::process()
+inline float Voice::process()
 {
     const float env = env_.process();
     const float osc1 = osc_[0].process();
@@ -232,7 +249,7 @@ void Voice::process(float* buf, int num)
     const float lfo_flt = preset_->vcfLfo*lfo*40.f;
     const float env_flt = preset_->vcfEnv*env_.value()*80.f;
     const float key_flt = preset_->vcfKeyFollow*static_cast<float>(note_ + preset_->tune - 60); // arbitrary subtract...
-                                                                                                // this mapping assumes SR = 44100, which it is for now. About 100+ hz to about 20k
+    // this mapping assumes SR = 44100, which it is for now. About 100+ hz to about 20k
     const float filt_freq = 700.f/SampleRate_f*SynthTables::interpNote(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
     set_note(static_cast<float>(note_) + vib);
     filter_.set(filt_freq, preset_->vcfReso);
@@ -361,3 +378,4 @@ void Synth::process(uint16_t* buf, int num)
         buf[i] = static_cast<uint16_t>(std::max(std::min(static_cast<int>(mixbuf_[i]*511.f + 512.f), 1023), 0));
     }
 }
+
