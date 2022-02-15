@@ -60,6 +60,22 @@ namespace orchestra {
         return n;
     }
 
+	function encodeParam(param: number, buf: Buffer, pos: number, chars: number): void {
+        for (let i = 0; i < chars; i++) {
+            buf.setUint8(pos + i, (param & 0x3f) + 48);
+            param >>= 6;
+        }
+    }
+
+    function decodeParam(buf: Buffer, pos: number, chars: number): number {
+        let out = 0;
+        for (let i = 0; i < chars; i++) {
+            out |= (buf.getUint8(pos + i) - 48) << (i*6);
+        }
+        return out;
+    }
+
+
     //% help=orch/set-synth-parameter weight=30
     //% group="Orchestra"
     //% blockId=orch_set_parameter
