@@ -23,6 +23,7 @@ SOFTWARE.
 */
 
 #include "MicroSynth.h"
+#include <limits>
 
 bool SynthTables::inited = false;
 float SynthTables::notetab[129];
@@ -39,7 +40,7 @@ void SynthTables::init()
 
 inline float SynthTables::interpNote(float ind)
 {
-    const int i = std::min(std::max(static_cast<int>(ind), 0), 127);
+    const int i = min(max(static_cast<int>(ind), 0), 127);
     const float frac = ind - i;
     return (1.f - frac)*notetab[i] + frac*notetab[i + 1];
 }
@@ -134,10 +135,13 @@ bool ADSR::done() const
 void ADSR::set(float a, float d, float s, float r)
 {
     const float r_SR = 1.f/SampleRate_f;
-    inc_[0] = std::min(r_SR/a, 1.f);
-    inc_[1] = std::min(r_SR/d, 1.f);
+    inc_[0] = r_SR/a;
+    if (inc_[0] > 1.f) inc_[0] = 1.f;
+    inc_[1] = r_SR/d;
+    if (inc_[1] > 1.f) inc_[1] = 1.f;
     levels_[2] = s;
-    inc_[3] = std::min(r_SR/r, 1.f);
+    inc_[3] = r_SR/r;
+    if (inc_[3] > 1.f) inc_[3] = 1.f;
 }
 
 void ADSR::reset()
@@ -156,6 +160,7 @@ inline float Osc::process()
 {
     float out = acc_;
     acc_ += delta_;
+    // wrap phase back to [0, 1]. assumes delta is within proper bounds, or we'd need a while loop
     if (acc_ > 1.f) acc_ -= 2.f;
     switch (wave_) {
     case OscType::Saw:
@@ -172,6 +177,7 @@ inline float Osc::processPM(float pm)
 {
     float out = acc_;
     acc_ += delta_ + pm;
+    // same as in process(), but now delta can also be negative due to modulation
     if (acc_ > 1.f) acc_ -= 2.f;
     else if (acc_ < -1.f) acc_ += 2.f;
     switch (wave_) {
@@ -259,7 +265,7 @@ void Voice::process(float* buf, int num)
         buf[i] += process();
     }
     // check if it's time to move amp envelope to release
-    if (gateLength_ >= 0) gateLength_ -= std::min(gateLength_, BlockSize);
+    if (gateLength_ >= 0) gateLength_ -= min(gateLength_, BlockSize);
     if (!stopping_ && gateLength_ == 0) detrig();
     // check if amp envelope has died out and deactivate voice if so
     if (env_.done() || (preset_->ampGate && smoothedGate_ < 1e-3)) note_ = -1;
@@ -305,9 +311,11 @@ int Synth::findVoice(int8_t note)
 Voice& Synth::alloc(int /*note*/)
 {
     // TODO make betterer. maybe steal oldest?
+    // find first free note
     for (int i = 0; i < numVoices_; ++i) {
         if (voice_[i].getNote() == -1) return voice_[i];
     }
+    // or else we steal the first voice
     return voice_[0];
 }
 
@@ -320,14 +328,6 @@ Synth::Synth(int num_voices) : numVoices_(num_voices)
 Synth::~Synth()
 {
     delete[] voice_;
-}
-
-void Synth::playSample(const uint8_t* sample, int len, float gain)
-{
-    sample_table_ = sample;
-    sample_len_ = len;
-    sample_gain_ = gain/128.f; // bake in 8 bit conversion
-    sample_pos_ = 0;
 }
 
 void Synth::noteOn(int8_t note, float velocity, float duration, const Preset* preset)
@@ -345,21 +345,12 @@ void Synth::noteOff(int8_t note)
 
 void Synth::process_noclip(float* buf, int num)
 {
-    std::fill_n(buf, num, 0.f);
+    memset(buf, 0, num*sizeof(float));
 
     for (int i = 0; i < numVoices_; ++i) {
         Voice& v = voice_[i];
         if (v.getNote() == -1) continue;
         v.process(buf, num);
-    }
-    if (sample_pos_ > -1) {
-        for (int i = 0; i < num; ++i) {
-            buf[i] += static_cast<float>(sample_table_[sample_pos_++] - 128.f)*sample_gain_;
-            if (sample_pos_ >= sample_len_) {
-                sample_pos_ = -1;
-                break;
-            }
-        }
     }
 }
 
@@ -367,7 +358,10 @@ void Synth::process(float* buf, int num)
 {
     process_noclip(buf, num);
     for (int i = 0; i < num; ++i) {
-        buf[i] = std::max(std::min(buf[i], 1.f), -1.f);
+        float out = buf[i];
+        if (out > 1.f) out = 1.f;
+        else if (out < -1.f) out = -1.f;
+        buf[i] = out;
     }
 }
 
@@ -375,7 +369,6 @@ void Synth::process(uint16_t* buf, int num)
 {
     process_noclip(mixbuf_, num);
     for (int i = 0; i < num; ++i) {
-        buf[i] = static_cast<uint16_t>(std::max(std::min(static_cast<int>(mixbuf_[i]*511.f + 512.f), 1023), 0));
+        buf[i] = static_cast<uint16_t>(max(min(static_cast<int>(mixbuf_[i]*511.f + 512.f), 1023), 0));
     }
 }
-

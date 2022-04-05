@@ -22,8 +22,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#pragma once
-#include <algorithm>
+#ifndef MICROSYNTH_H
+#define MICROSYNTH_H
+
 #include <cmath>
 #include <cstdint>
 
@@ -56,10 +57,13 @@ enum class FilterType : uint8_t
     BPF
 };
 
+/**
+ * Class containing all synthesizer settings.
+ */
 struct Preset
 {
     OscType osc1Shape, osc2Shape;
-    // multiplicative transpose factor, typical 0.5 to 2.0
+    // additive transpose factor in notes, typical -24 to 24
     float osc2Transpose;
     // linear amplitude factor, 0 to 1
     float osc1Vol, osc2Vol;
@@ -165,10 +169,19 @@ class Voice
     float process();
 public:
     Voice();
+
     void process(float* buf, int num);
     void trig(int8_t note, float velocity, const Preset* preset, int length = -1);
     void detrig();
+    /**
+    * Returns note number this voice was created with.
+    * @return Note number
+    */
     int8_t getNote() const;
+    /**
+    * Get note status.
+    * @return true if not is in release phase, false if not
+    */
     bool isStopping() const;
 };
 
@@ -177,10 +190,6 @@ class Synth
     Voice* voice_;
     float mixbuf_[BlockSize];
     int numVoices_;
-    int sample_pos_ = -1;
-    int sample_len_ = 0;
-    float sample_gain_ = 1.f;
-    const uint8_t* sample_table_;
 
     int findVoice(int8_t note);
     Voice& alloc(int note);
@@ -188,9 +197,31 @@ class Synth
 public:
     Synth(int num_voices);
     ~Synth();
-    void playSample(const uint8_t* sample, int len, float gain = 1.f);
+    /**
+    * Allocates a voice and starts playing a note with given parameters.
+    * @param note MIDI Note number.
+    * @param velocity Note velocity, from 0 to 1
+    * @param duration Note duration, in seconds
+    * @param preset Pointer to preset data to use for voice
+    */
     void noteOn(int8_t note, float velocity, float duration, const Preset* preset);
+    /**
+    * Starts release phase of voice playing given note.
+    * @param note MIDI Note number.
+    */
     void noteOff(int8_t note);
+    /**
+    * Synthesize a buffer of sound, float buffer version.
+    * @param buf Buffer of floats to render sound to.
+    * @param num Number of samples to generate.
+    */
     void process(float* buf, int num);
+    /**
+    * Synthesize a buffer of sound, integer buffer version.
+    * @param buf Buffer of integers to render sound to.
+    * @param num Number of samples to generate.
+    */
     void process(uint16_t* buf, int num);
 };
+
+#endif
