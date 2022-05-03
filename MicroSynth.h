@@ -25,16 +25,7 @@ SOFTWARE.
 #ifndef MICROSYNTH_H
 #define MICROSYNTH_H
 
-inline int min(int a, int b)
-{
-    return (a < b ? a : b);
-}
-
-inline int max(int a, int b)
-{
-    return (a > b ? a : b);
-}
-
+#include "MicroBit.h"
 #include <cmath>
 #include <cstdint>
 

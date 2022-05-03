@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include "MicroSynth.h"
 #include <limits>
+#include <cstring>
 
 bool SynthTables::inited_ = false;
 float SynthTables::notetab_[129];
