@@ -25,30 +25,32 @@ SOFTWARE.
 #include "MicroSynth.h"
 #include <limits>
 
-bool SynthTables::inited = false;
-float SynthTables::notetab[129];
+bool SynthTables::inited_ = false;
+float SynthTables::notetab_[129];
 
 void SynthTables::init()
 {
     // singletons are bad, but assume no race conditions, true for microbit use
-    if (inited) return;
+    if (inited_) return;
     for (int i = 0; i < 128; ++i)
-        notetab[i] = powf(2.f, (i - 69)/12.f);
-    notetab[128] = notetab[127];
-    inited = true;
+        notetab_[i] = powf(2.f, (i - 69)/12.f);
+    notetab_[128] = notetab_[127];
+    inited_ = true;
 }
 
-inline float SynthTables::interpNote(float ind)
+inline float SynthTables::noteToScaler(float ind)
 {
     const int i = min(max(static_cast<int>(ind), 0), 127);
     const float frac = ind - i;
-    return (1.f - frac)*notetab[i] + frac*notetab[i + 1];
+    return (1.f - frac)*notetab_[i] + frac*notetab_[i + 1];
 }
 
-inline float SVF::tan(float x)
+inline float StateVariableFilter::tan(float x)
 {
-    // stolen from mutable instruments
-    // TODO for 48 kHz, try to make a 44.1 khz version
+    // x in range from 0 up to somewhat below 0.5 (gets mutiplied by pi here)
+    // From Mutable Instruments:
+    // https://github.com/pichenettes/stmlib/blob/master/dsp/filter.h
+    // This is for 48 kHz, but works well for 44.1 as well.
     const float pi_two = _PI*_PI;
     const float pi_three = pi_two*_PI;
     const float pi_five = pi_three*pi_two;
@@ -58,21 +60,21 @@ inline float SVF::tan(float x)
     return x*(_PI + f2*(a + b*f2));
 }
 
-SVF::SVF()
+StateVariableFilter::StateVariableFilter()
 {
     reset();
 }
 
-inline void SVF::set(float cutoff, float res)
+inline void StateVariableFilter::set(float cutoff, float res)
 {
-    // TODO we will probably want to clip cutoff for part of the range
+    // cutoff should be clipped, but we know we'll never exceed limits
     const float r = 1.f - res;
     g_ = tan(cutoff);
     g1_ = 2.f*r + g_;
     d_ = 1.f/(1.f + 2.f*r*g_ + g_*g_);
 }
 
-inline float SVF::process(float x, FilterType f)
+inline float StateVariableFilter::process(float x, FilterType f)
 {
     const float hp = (x - g1_*s1_ - s2_)*d_;
     const float v1 = g_*hp;
@@ -92,17 +94,17 @@ inline float SVF::process(float x, FilterType f)
     }
 }
 
-void SVF::reset()
+void StateVariableFilter::reset()
 {
     s1_ = s2_ = 0.f;
 }
 
-ADSR::ADSR()
+ADSREnv::ADSREnv()
 {
     reset();
 }
 
-inline float ADSR::process()
+inline float ADSREnv::process()
 {
     if (state_ == State::Done) return 0.f;
     if (phase_ >= 1.f) {
@@ -119,7 +121,7 @@ inline float ADSR::process()
     return cur_;
 }
 
-inline void ADSR::gate(bool g)
+inline void ADSREnv::gate(bool g)
 {
     start_val_ = cur_;
     phase_ = 0.f;
@@ -127,14 +129,14 @@ inline void ADSR::gate(bool g)
     phase_inc_ = inc_[static_cast<int>(state_)];
 }
 
-bool ADSR::done() const
+inline bool ADSREnv::done() const
 {
     return state_ == State::Done;
 }
 
-void ADSR::set(float a, float d, float s, float r)
+void ADSREnv::set(float a, float d, float s, float r)
 {
-    const float r_SR = 1.f/SampleRate_f;
+    const float r_SR = 1.f/SynthSampleRate_f;
     inc_[0] = r_SR/a;
     if (inc_[0] > 1.f) inc_[0] = 1.f;
     inc_[1] = r_SR/d;
@@ -144,19 +146,19 @@ void ADSR::set(float a, float d, float s, float r)
     if (inc_[3] > 1.f) inc_[3] = 1.f;
 }
 
-void ADSR::reset()
+void ADSREnv::reset()
 {
     phase_ = phase_inc_ = 0.f;
     cur_ = 0.f;
     state_ = State::Done;
 }
 
-float ADSR::value() const
+inline float ADSREnv::value() const
 {
     return cur_;
 }
 
-inline float Osc::process()
+inline float Oscillator::process()
 {
     float out = acc_;
     acc_ += delta_;
@@ -173,7 +175,7 @@ inline float Osc::process()
     }
 }
 
-inline float Osc::processPM(float pm)
+inline float Oscillator::processPM(float pm)
 {
     float out = acc_;
     acc_ += delta_ + pm;
@@ -191,38 +193,38 @@ inline float Osc::processPM(float pm)
     }
 }
 
-inline void Osc::setFreq(float f)
+inline void Oscillator::setFreq(float f)
 {
-    delta_ = 2.f*f/SampleRate_f;
+    delta_ = 2.f*f/SynthSampleRate_f;
 }
 
-void Osc::setType(OscType t)
+void Oscillator::setType(OscType t)
 {
     wave_ = t;
 }
 
-inline void Osc::setPW(float pw)
+inline void Oscillator::setPW(float pw)
 {
     pw_ = pw;
 }
 
 void Voice::apply_preset()
 {
-    const Preset& p = *preset_;
+    const SynthPreset& p = *preset_;
     filter_.reset();
     osc_[0].setPW(p.osc1Pw); osc_[1].setPW(p.osc2Pw);
     osc_[0].setType(p.osc1Shape); osc_[1].setType(p.osc2Shape);
     lfo_.setType(p.lfoShape);
-    lfo_.setFreq(preset_->lfoFreq*BlockSize);
+    lfo_.setFreq(preset_->lfoFreq*SynthBlockSize);
     env_.set(p.envA, p.envD, p.envS, p.envR);
     filter_.set(p.vcfCutoff, p.vcfReso);
 }
 
 void Voice::set_note(float note)
 {
-    const float t = 440.f*SynthTables::interpNote(note + preset_->tune);
+    const float t = 440.f*SynthTables::noteToScaler(note + preset_->tune);
     osc_[0].setFreq(t);
-    osc_[1].setFreq(t*SynthTables::interpNote(preset_->osc2Transpose + 69.f));
+    osc_[1].setFreq(t*SynthTables::noteToScaler(preset_->osc2Transpose + 69.f));
 }
 
 Voice::Voice()
@@ -250,13 +252,13 @@ void Voice::process(float* buf, int num)
 {
     if (preset_ == nullptr) return;
     const float lfo = lfo_.process();
-    vibLfo_.setFreq(preset_->vibFreq*BlockSize);
+    vibLfo_.setFreq(preset_->vibFreq*SynthBlockSize);
     const float vib = vibLfo_.process()*preset_->vibAmount;
     const float lfo_flt = preset_->vcfLfo*lfo*40.f;
     const float env_flt = preset_->vcfEnv*env_.value()*80.f;
     const float key_flt = preset_->vcfKeyFollow*static_cast<float>(note_ + preset_->tune - 60); // arbitrary subtract...
     // this mapping assumes SR = 44100, which it is for now. About 100+ hz to about 20k
-    const float filt_freq = 700.f/SampleRate_f*SynthTables::interpNote(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
+    const float filt_freq = 700.f/SynthSampleRate_f*SynthTables::noteToScaler(preset_->vcfCutoff*(127.f - 40.f) + 40.f + lfo_flt + env_flt + key_flt);
     set_note(static_cast<float>(note_) + vib);
     filter_.set(filt_freq, preset_->vcfReso);
     osc_[0].setPW(preset_->osc1Pw + preset_->osc1Pwm*lfo);
@@ -265,13 +267,13 @@ void Voice::process(float* buf, int num)
         buf[i] += process();
     }
     // check if it's time to move amp envelope to release
-    if (gateLength_ >= 0) gateLength_ -= min(gateLength_, BlockSize);
+    if (gateLength_ >= 0) gateLength_ -= min(gateLength_, SynthBlockSize);
     if (!stopping_ && gateLength_ == 0) detrig();
     // check if amp envelope has died out and deactivate voice if so
     if (env_.done() || (preset_->ampGate && smoothedGate_ < 1e-3)) note_ = -1;
 }
 
-void Voice::trig(int8_t note, float velocity, const Preset* preset, int length)
+void Voice::trig(int8_t note, float velocity, const SynthPreset* preset, int length)
 {
     preset_ = preset;
     stopping_ = false;
@@ -300,7 +302,7 @@ bool Voice::isStopping() const
     return stopping_;
 }
 
-int Synth::findVoice(int8_t note)
+int PolySynth::findVoice(int8_t note)
 {
     for (int i = 0; i < numVoices_; ++i) {
         if (voice_[i].getNote() == note && !voice_[i].isStopping()) return i;
@@ -308,43 +310,43 @@ int Synth::findVoice(int8_t note)
     return -1;
 }
 
-Voice& Synth::alloc(int /*note*/)
+Voice& PolySynth::alloc(int /*note*/)
 {
-    // TODO make betterer. maybe steal oldest?
     // find first free note
     for (int i = 0; i < numVoices_; ++i) {
         if (voice_[i].getNote() == -1) return voice_[i];
     }
-    // or else we steal the first voice
+    // or else we steal the first voice. should probably do something better...
     return voice_[0];
 }
 
-Synth::Synth(int num_voices) : numVoices_(num_voices)
+PolySynth::PolySynth(int num_voices) : numVoices_(num_voices)
 {
     voice_ = new Voice[numVoices_];
     SynthTables::init();
 }
 
-Synth::~Synth()
+PolySynth::~PolySynth()
 {
     delete[] voice_;
 }
 
-void Synth::noteOn(int8_t note, float velocity, float duration, const Preset* preset)
+void PolySynth::noteOn(int8_t note, float velocity, float duration, const SynthPreset* preset)
 {
     Voice& v = alloc(note);
-    const int length = duration != 0.f ? static_cast<int>(duration*SampleRate_f) : -1;
+    const int length = duration != 0.f ? static_cast<int>(duration*SynthSampleRate_f) : -1;
     v.trig(note, velocity, preset, length);
 }
 
-void Synth::noteOff(int8_t note)
+void PolySynth::noteOff(int8_t note)
 {
     int ind = findVoice(note);
     if (ind != -1) voice_[ind].detrig();
 }
 
-void Synth::process_noclip(float* buf, int num)
+void PolySynth::process_noclip(float* buf, int num)
 {
+    // clear mixing buffer
     memset(buf, 0, num*sizeof(float));
 
     for (int i = 0; i < numVoices_; ++i) {
@@ -354,7 +356,7 @@ void Synth::process_noclip(float* buf, int num)
     }
 }
 
-void Synth::process(float* buf, int num)
+void PolySynth::process(float* buf, int num)
 {
     process_noclip(buf, num);
     for (int i = 0; i < num; ++i) {
@@ -365,10 +367,13 @@ void Synth::process(float* buf, int num)
     }
 }
 
-void Synth::process(uint16_t* buf, int num)
+void PolySynth::process(uint16_t* buf, int num)
 {
     process_noclip(mixbuf_, num);
     for (int i = 0; i < num; ++i) {
-        buf[i] = static_cast<uint16_t>(max(min(static_cast<int>(mixbuf_[i]*511.f + 512.f), 1023), 0));
+        // convert to 10 bits
+        const float out = mixbuf_[i]*511.f + 512.f;
+        // add dither and noise shaping here if we ever want that
+        buf[i] = static_cast<uint16_t>(max(min(static_cast<int>(out), 1023), 0));
     }
 }

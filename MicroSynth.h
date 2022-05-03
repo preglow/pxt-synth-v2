@@ -25,22 +25,44 @@ SOFTWARE.
 #ifndef MICROSYNTH_H
 #define MICROSYNTH_H
 
+inline int min(int a, int b)
+{
+    return (a < b ? a : b);
+}
+
+inline int max(int a, int b)
+{
+    return (a > b ? a : b);
+}
+
 #include <cmath>
 #include <cstdint>
 
 #define _PI 3.14159265359f
 
-static constexpr int BlockSize = 256;
-static constexpr int SampleRate = 44100;
-static constexpr float SampleRate_f = 44100.f;
+static constexpr int SynthBlockSize = 256;
+static constexpr int SynthSampleRate = 44100;
+static constexpr float SynthSampleRate_f = static_cast<float>(SynthSampleRate);
 
+/** 
+ * Class containing certain precalculated synth data.
+ */
 class SynthTables
 {
-    static float notetab[129]; // including guard point
-    static bool inited;
+    static float notetab_[129]; // including guard point
+    static bool inited_;
 public:
+    /**
+     * Calculates tables. Must be called once before using rest of class.
+     */
     static void init();
-    static float interpNote(float ind);
+    /**
+     * Convert (fractional) MIDI note number to linear scale factor, corresponding to
+     * f(x) = 2^((x - 69)/12)
+     * @param ind fractional MIDI note number, 0 to 127 
+     * @return scale factor. Note number 69 returns 1.0
+     */
+    static float noteToScaler(float ind);
 };
 
 enum class OscType : uint8_t
@@ -58,10 +80,11 @@ enum class FilterType : uint8_t
 };
 
 /**
- * Class containing all synthesizer settings.
- */
-struct Preset
+  * Class containing all synthesizer settings.
+  */
+struct SynthPreset
 {
+    // oscillator shapes
     OscType osc1Shape, osc2Shape;
     // additive transpose factor in notes, typical -24 to 24
     float osc2Transpose;
@@ -73,6 +96,7 @@ struct Preset
     float osc1Pwm, osc2Pwm;
     // Osc1 -> Osc2 PM amount
     float fmAmount;
+    // filter type
     FilterType vcfType;
     // 0 to 1, covers almost all spectrum
     float vcfCutoff;
@@ -86,32 +110,61 @@ struct Preset
     float vcfKeyFollow;
     // seconds, sustain is amplitude factor 0 to 1
     float envA, envD, envS, envR;
+    // shape of lfo
     OscType lfoShape;
+    // frequency of lfo in hz
     float lfoFreq;
     // vibrato frequency in hz
     float vibFreq;
     // vibrato amount in semitones
     float vibAmount;
+    // voi
     float gain;
+    // relative tuning for everything, in semitones
     float tune;
+    // level of noise, linear amplitude
     float noise;
+    // true to use smoothed gate as amplitude envelope, adsr if false
     bool ampGate;
 };
 
-// Vadim Zavilishin's TPT state variable filter from "The Art of VA Filter Design"
-class SVF
+/**
+  * Class containing Vadim Zavilishin's TPT state variable filter
+  * from the free book "The Art of VA Filter Design".
+  */
+class StateVariableFilter
 {
     float g_, g1_, d_;
     float s1_, s2_;
     float tan(float x);
 public:
-    SVF();
+    /** 
+     * Constructor. 
+     */
+    StateVariableFilter();
+    /**
+     * Set filter cutoff frequency and resonance.
+     * @param cutoff cutoff frequency, range 0 to 0.5 corresponding to 0 hz and nyquist
+     * @param res resonance level, range 0 (no resonance) to 1 (self resonating)
+     */
     void set(float cutoff, float res);
+    /**
+     * Filter an input sample.
+     * @param x input sample
+     * @param f filter type to use
+     * @reeturn filtered sample
+     */
     float process(float x, FilterType f = FilterType::LPF);
+    /**
+     * Resets internal filter history.
+     */
     void reset();
 };
 
-class ADSR
+/**
+ * Class containing implementation of simple ADSR envelope with linear segments.
+ */
+class ADSREnv
 {
     enum class State : uint8_t
     {
@@ -124,17 +177,49 @@ class ADSR
     float cur_ = 0.f;
     State state_;
 public:
-    ADSR();
+    /** 
+     * Constructor.
+     * Creates new envelope in Done state.
+     */
+    ADSREnv();
+    /** 
+     * Generate next envelope value.
+     * @return envelope value
+     */
     float process();
+    /** 
+     * Set envelope gate state. 
+     * @param g gate status. True for active gate. 
+     */
     void gate(bool g = true);
+    /** 
+     * Get envelope state
+     * @return envelope value
+     */
     bool done() const;
+    /** 
+     * Set envelope times and levels.
+     * @param a attack time in seconds
+     * @param d decay time in seconds
+     * @param s sustain level, usually 0 to 1
+     * @param r release time in seconds
+     */
     void set(float a, float d, float s, float r);
+    /** 
+     * Reset envelope state to Done.
+     */
     void reset();
+    /** 
+     * Get current envelope value.
+     * @return envelope value
+     */
     float value() const;
 };
 
-// Naive oscillators with plenty of aliasing
-class Osc
+/**
+ * Class containing naive oscillators with plenty of aliasing.
+ */
+class Oscillator
 {
     float acc_ = 0.f, delta_ = 0.f, pw_ = 0.f;
     OscType wave_ = OscType::Saw;
@@ -146,35 +231,51 @@ public:
     void setPW(float pw);
 };
 
-// all parameter modulations except the amplitude envelope are computed once per block 
-// to save on processing
-// do NOT call any parameter settings functions before setting a preset
+/**
+ * A single synthesizer voice.
+ * All parameter modulations except the amplitude envelope are computed once per block
+ * to save on processing time.
+ */
 class Voice
 {
-    Osc osc_[2];
-    Osc lfo_;
-    Osc vibLfo_;
-    SVF filter_;
-    ADSR env_;
-    float gain_;
-    float smoothedGate_;
+    Oscillator osc_[2];
+    Oscillator lfo_;
+    Oscillator vibLfo_;
+    StateVariableFilter filter_;
+    ADSREnv env_;
+    float gain_;            // gain and velocity combined
+    float smoothedGate_;    // lowpass filtered gate for use instead of envelope
     int gateLength_ = -1;   // -1 means no preset time duration
     int8_t note_ = -1;      // -1 means inactive voice
     bool stopping_ = false; // set to true after we've received a note off
-    const Preset* preset_;
-    int32_t noise_;
+    const SynthPreset* preset_ = nullptr;
+    int32_t noise_;         // linear congruential noise state
     void apply_preset();
     void set_note(float note);
     // per sample process
     float process();
 public:
     Voice();
-
+    /** 
+     * Run voice synthesis loop.
+     * @param buf buffer to mix voice output into
+     * @param num number of samples to generate
+     */
     void process(float* buf, int num);
-    void trig(int8_t note, float velocity, const Preset* preset, int length = -1);
+    /** 
+     * Trigger a new voice, potentially stealing an active voice to do so.
+     * @param note MIDI note number
+     * @param velocity note velocity, from 0 to 1 (max velocity). Currently controls voice gain
+     * @param preset preset to use for this voice
+     * @param length length of note in samples. Use -1 to let the gate decide
+     */
+    void trig(int8_t note, float velocity, const SynthPreset* preset, int length = -1);
+    /** 
+     * Release a voice, starting the envelope release phase.
+     */
     void detrig();
     /**
-    * Returns note number this voice was created with.
+    * Get note number this voice was created with.
     * @return Note number
     */
     int8_t getNote() const;
@@ -185,41 +286,44 @@ public:
     bool isStopping() const;
 };
 
-class Synth
+/** 
+ * Polyphonic synthesizer. 
+ */
+class PolySynth
 {
     Voice* voice_;
-    float mixbuf_[BlockSize];
+    float mixbuf_[SynthBlockSize];
     int numVoices_;
 
     int findVoice(int8_t note);
     Voice& alloc(int note);
     void process_noclip(float* buf, int num);
 public:
-    Synth(int num_voices);
-    ~Synth();
+    PolySynth(int num_voices);
+    ~PolySynth();
     /**
     * Allocates a voice and starts playing a note with given parameters.
-    * @param note MIDI Note number.
+    * @param note MIDI Note number
     * @param velocity Note velocity, from 0 to 1
     * @param duration Note duration, in seconds
     * @param preset Pointer to preset data to use for voice
     */
-    void noteOn(int8_t note, float velocity, float duration, const Preset* preset);
+    void noteOn(int8_t note, float velocity, float duration, const SynthPreset* preset);
     /**
     * Starts release phase of voice playing given note.
-    * @param note MIDI Note number.
+    * @param note MIDI Note number
     */
     void noteOff(int8_t note);
     /**
     * Synthesize a buffer of sound, float buffer version.
-    * @param buf Buffer of floats to render sound to.
-    * @param num Number of samples to generate.
+    * @param buf buffer of floats to render sound to
+    * @param num number of samples to generate
     */
     void process(float* buf, int num);
     /**
     * Synthesize a buffer of sound, integer buffer version.
-    * @param buf Buffer of integers to render sound to.
-    * @param num Number of samples to generate.
+    * @param buf buffer of integers to render sound to
+    * @param num number of samples to generate
     */
     void process(uint16_t* buf, int num);
 };
