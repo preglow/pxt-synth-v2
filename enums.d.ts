@@ -1,7 +1,7 @@
 // Auto-generated. Do not edit.
 
 
-    declare const enum SynthPreset {
+    declare const enum PxtSynthPreset {
     //% preset1
     Preset1 = 0,
     //% preset2
@@ -11,7 +11,7 @@
     }
 
 
-    declare const enum SynthParameter {
+    declare const enum PxtSynthParameter {
     //% osc1shape
     Osc1Shape = 0,
     //% osc2shape
@@ -49,16 +49,6 @@
     VibratoAmount = 25,
     Tune = 26,
     Noise = 27,
-    }
-
-
-    declare const enum Sample {
-    BassDrum = 0,
-    SnareDrum = 1,
-    Clap = 2,
-    HighHat = 3,
-    OpenHighHat = 4,
-    Cowbell = 5,
     }
 declare namespace orchestra {
 }

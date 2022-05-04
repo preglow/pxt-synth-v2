@@ -23,17 +23,10 @@ SOFTWARE.
 */
 
 #include "pxt.h"
-#include "MicroBit.h"
 #include "MicroSynth.h"
 #include <cmath>
-#include "samples/BD_sample.h"
-#include "samples/SD_sample.h"
-#include "samples/CL_sample.h"
-#include "samples/HH_sample.h"
-#include "samples/OHH_sample.h"
-#include "samples/Cowbell_sample.h"
 
-enum class SynthPreset {
+enum class PxtSynthPreset {
     //% preset1
     Preset1 = 0,
     //% preset2
@@ -42,7 +35,7 @@ enum class SynthPreset {
     Preset3,
 };
 
-enum class SynthParameter {
+enum class PxtSynthParameter {
     //% osc1shape
     Osc1Shape = 0,
     //% osc2shape
@@ -64,7 +57,7 @@ enum class SynthParameter {
     FilterKeyFollow,
     FilterEnvAmount,
     FilterLfoAmount,
-	FilterType,
+    FilterType,
     //% envelope attack
     EnvAttackTime,
     //% envelope decay
@@ -82,58 +75,49 @@ enum class SynthParameter {
     Noise
 };
 
-enum class Sample {
-    BassDrum = 0,
-    SnareDrum,
-    Clap,
-    HighHat,
-    OpenHighHat,
-    Cowbell
-};
-
 //% block="Orch blocks"
 namespace orchestra {
 
-static constexpr int NumVoices = 8;
+static constexpr int NumVoices = 6;
 
-Preset presets[3];
-Synth synth(NumVoices);
+SynthPreset presets[3];
+PolySynth synth(NumVoices);
 
-class AudioTest : public DataSource
+class PolySynthSource : public DataSource
 {
     DataSink* downStream_;
     bool init_ = false;
-    Synth& synth;
+    PolySynth& synth_;
 public:
-	AudioTest(Synth& s) : synth(s)
-	{
-	}
-    void go()
+    PolySynthSource(PolySynth& s) : synth_(s)
+    {
+    }
+    void start()
     {
         if (!init_) {
             downStream_->pullRequest();
             init_ = true;
         }
     }
-	virtual void connect(DataSink& sink) override
-	{
-		downStream_ = &sink;
-	}
-	virtual int getFormat() override
-	{
-		return DATASTREAM_FORMAT_16BIT_UNSIGNED;
-	}
-	virtual ManagedBuffer pull() override
-	{
-		ManagedBuffer buf(512);
-		uint16_t* out = (uint16_t*)&buf[0];
-        synth.process(out, 256);
+    virtual void connect(DataSink& sink) override
+    {
+        downStream_ = &sink;
+    }
+    virtual int getFormat() override
+    {
+        return DATASTREAM_FORMAT_16BIT_UNSIGNED;
+    }
+    virtual ManagedBuffer pull() override
+    {
+        ManagedBuffer buf(512);
+        uint16_t* out = reinterpret_cast<uint16_t*>(&buf[0]);
+        synth_.process(out, 256);
         downStream_->pullRequest();
-		return buf;
-	}
+        return buf;
+    }
 };
 
-AudioTest atest(synth);
+PolySynthSource atest(synth);
 bool audioInited = false;
 
 static void audioInit()
@@ -143,104 +127,104 @@ static void audioInit()
     uBit.audio.setVolume(255);
     uBit.audio.enable();
     uBit.audio.mixer.addChannel(atest);
-    atest.go();
+    atest.start();
     audioInited = true;
     for (int i = 0; i < 3; ++i) {
-        memset(&presets[i], 0, sizeof(Preset));
+        memset(&presets[i], 0, sizeof(SynthPreset));
         presets[i].osc1Vol = presets[i].vcfCutoff = presets[i].gain = 0.5f;
         presets[i].ampGate = true;
     }
 }
 
 //%
-void setParameter(SynthPreset preset, SynthParameter param, float val)
+void setParameter(PxtSynthPreset preset, PxtSynthParameter param, float val)
 {
     auto& p = presets[static_cast<int>(preset)];
 
     if (!audioInited) audioInit();
     switch (param) {
-    case SynthParameter::Osc1Shape:
+    case PxtSynthParameter::Osc1Shape:
         p.osc1Shape = static_cast<OscType>(static_cast<int>(val));
         break;
-    case SynthParameter::Osc2Shape:
+    case PxtSynthParameter::Osc2Shape:
         p.osc2Shape = static_cast<OscType>(static_cast<int>(val));
         break;
-    case SynthParameter::Osc2Transpose:
+    case PxtSynthParameter::Osc2Transpose:
         p.osc2Transpose = val;
         break;
-    case SynthParameter::Osc1Pw:
+    case PxtSynthParameter::Osc1Pw:
         p.osc1Pw = val;
         break;
-    case SynthParameter::Osc2Pw:
+    case PxtSynthParameter::Osc2Pw:
         p.osc2Pw = val;
         break;
-    case SynthParameter::Osc1Pwm:
+    case PxtSynthParameter::Osc1Pwm:
         p.osc1Pwm = val;
         break;
-    case SynthParameter::Osc2Pwm:
+    case PxtSynthParameter::Osc2Pwm:
         p.osc2Pwm = val;
         break;
-    case SynthParameter::OscFm:
+    case PxtSynthParameter::OscFm:
         p.fmAmount = val;
         break;
-    case SynthParameter::Osc1Gain:
+    case PxtSynthParameter::Osc1Gain:
         p.osc1Vol = val;
         break;
-    case SynthParameter::Osc2Gain:
+    case PxtSynthParameter::Osc2Gain:
         p.osc2Vol = val;
         break;
-    case SynthParameter::Cutoff:
+    case PxtSynthParameter::Cutoff:
         p.vcfCutoff = val;
         break;
-    case SynthParameter::Resonance:
+    case PxtSynthParameter::Resonance:
         p.vcfReso = val;
         break;
-    case SynthParameter::FilterKeyFollow:
+    case PxtSynthParameter::FilterKeyFollow:
         p.vcfKeyFollow = val;
         break;
-    case SynthParameter::FilterEnvAmount:
+    case PxtSynthParameter::FilterEnvAmount:
         p.vcfEnv = val;
         break;
-    case SynthParameter::FilterLfoAmount:
+    case PxtSynthParameter::FilterLfoAmount:
         p.vcfLfo = val;
         break;
-	case SynthParameter::FilterType:
-		p.vcfType = static_cast<FilterType>(static_cast<int>(val));
-		break;
-    case SynthParameter::EnvAttackTime:
+    case PxtSynthParameter::FilterType:
+        p.vcfType = static_cast<FilterType>(static_cast<int>(val));
+        break;
+    case PxtSynthParameter::EnvAttackTime:
         p.envA = val;
         break;
-    case SynthParameter::EnvDecayTime:
+    case PxtSynthParameter::EnvDecayTime:
         p.envD = val;
         break;
-    case SynthParameter::EnvSustainLevel:
+    case PxtSynthParameter::EnvSustainLevel:
         p.envS = val;
         break;
-    case SynthParameter::EnvRelease:
+    case PxtSynthParameter::EnvRelease:
         p.envR = val;
         break;
-    case SynthParameter::AmpGate:
+    case PxtSynthParameter::AmpGate:
         p.ampGate = val > 0.f;
         break;
-    case SynthParameter::Gain:
+    case PxtSynthParameter::Gain:
         p.gain = val;
         break;
-    case SynthParameter::LFOFreq:
+    case PxtSynthParameter::LFOFreq:
         p.lfoFreq = val;
         break;
-    case SynthParameter::LFOShape:
+    case PxtSynthParameter::LFOShape:
         p.lfoShape = static_cast<OscType>(static_cast<int>(val));
         break;
-    case SynthParameter::VibratoFreq:
+    case PxtSynthParameter::VibratoFreq:
         p.vibFreq = val;
         break;
-    case SynthParameter::VibratoAmount:
+    case PxtSynthParameter::VibratoAmount:
         p.vibAmount = val;
-		break;
-    case SynthParameter::Tune:
+        break;
+    case PxtSynthParameter::Tune:
         p.tune = val;
         break;
-    case SynthParameter::Noise:
+    case PxtSynthParameter::Noise:
         p.noise = val;
         break;
     default:
@@ -249,67 +233,67 @@ void setParameter(SynthPreset preset, SynthParameter param, float val)
 }
 
 //%
-float getParameter(SynthPreset preset, SynthParameter param)
+float getParameter(PxtSynthPreset preset, PxtSynthParameter param)
 {
     const auto& p = presets[static_cast<int>(preset)];
 
     if (!audioInited) audioInit();
     switch (param) {
-    case SynthParameter::Osc1Shape:
+    case PxtSynthParameter::Osc1Shape:
         return static_cast<float>(p.osc1Shape);
-    case SynthParameter::Osc2Shape:
+    case PxtSynthParameter::Osc2Shape:
         return static_cast<float>(p.osc2Shape);
-    case SynthParameter::Osc2Transpose:
+    case PxtSynthParameter::Osc2Transpose:
         return p.osc2Transpose;
-    case SynthParameter::Osc1Pw:
+    case PxtSynthParameter::Osc1Pw:
         return p.osc1Pw;
-    case SynthParameter::Osc2Pw:
+    case PxtSynthParameter::Osc2Pw:
         return p.osc2Pw;
-    case SynthParameter::Osc1Pwm:
+    case PxtSynthParameter::Osc1Pwm:
         return p.osc1Pwm;
-    case SynthParameter::Osc2Pwm:
+    case PxtSynthParameter::Osc2Pwm:
         return p.osc2Pwm;
-    case SynthParameter::OscFm:
+    case PxtSynthParameter::OscFm:
         return p.fmAmount;
-    case SynthParameter::Osc1Gain:
+    case PxtSynthParameter::Osc1Gain:
         return p.osc1Vol;
-    case SynthParameter::Osc2Gain:
+    case PxtSynthParameter::Osc2Gain:
         return p.osc2Vol;
-    case SynthParameter::Cutoff:
+    case PxtSynthParameter::Cutoff:
         return p.vcfCutoff;
-    case SynthParameter::Resonance:
+    case PxtSynthParameter::Resonance:
         return p.vcfReso;
-    case SynthParameter::FilterKeyFollow:
+    case PxtSynthParameter::FilterKeyFollow:
         return p.vcfKeyFollow;
-    case SynthParameter::FilterEnvAmount:
+    case PxtSynthParameter::FilterEnvAmount:
         return p.vcfEnv;
-    case SynthParameter::FilterLfoAmount:
+    case PxtSynthParameter::FilterLfoAmount:
         return p.vcfLfo;
-    case SynthParameter::FilterType:
+    case PxtSynthParameter::FilterType:
         return static_cast<float>(p.vcfType);
-    case SynthParameter::EnvAttackTime:
+    case PxtSynthParameter::EnvAttackTime:
         return p.envA;
-    case SynthParameter::EnvDecayTime:
+    case PxtSynthParameter::EnvDecayTime:
         return p.envD;
-    case SynthParameter::EnvSustainLevel:
+    case PxtSynthParameter::EnvSustainLevel:
         return p.envS;
-    case SynthParameter::EnvRelease:
+    case PxtSynthParameter::EnvRelease:
         return p.envR;
-    case SynthParameter::AmpGate:
+    case PxtSynthParameter::AmpGate:
         return static_cast<float>(p.ampGate);
-    case SynthParameter::Gain:
+    case PxtSynthParameter::Gain:
         return p.gain;
-    case SynthParameter::LFOFreq:
+    case PxtSynthParameter::LFOFreq:
         return p.lfoFreq;
-    case SynthParameter::LFOShape:
+    case PxtSynthParameter::LFOShape:
         return static_cast<float>(p.lfoShape);
-    case SynthParameter::VibratoFreq:
+    case PxtSynthParameter::VibratoFreq:
         return p.vibFreq;
-    case SynthParameter::VibratoAmount:
+    case PxtSynthParameter::VibratoAmount:
         return p.vibAmount;
-    case SynthParameter::Tune:
+    case PxtSynthParameter::Tune:
         return p.tune;
-    case SynthParameter::Noise:
+    case PxtSynthParameter::Noise:
         return p.noise;
     default:
         return 0.f;
@@ -317,20 +301,7 @@ float getParameter(SynthPreset preset, SynthParameter param)
 }
 
 //%
-void playSample(Sample sample, float gain)
-{
-    const uint8_t* samples[] = { BD_sample, SD_sample, CL_sample, HH_sample, OHH_sample, Cowbell_sample };
-    const uint16_t sample_len[] = { sizeof(BD_sample), sizeof(SD_sample), sizeof(CL_sample), sizeof(HH_sample), sizeof(OHH_sample), sizeof(Cowbell_sample) };
-    const int sample_index = static_cast<int>(sample);
-    const uint8_t* buf = samples[sample_index];
-    const auto len = sample_len[sample_index];
-
-    if (!audioInited) audioInit();
-    synth.playSample(buf, len, gain);
-}
-
-//%
-void note(int note, int duration, int velocity, SynthPreset preset)
+void note(int note, int duration, int velocity, PxtSynthPreset preset)
 {
     const int preset_index = static_cast<int>(preset);
     if (!audioInited) audioInit();
